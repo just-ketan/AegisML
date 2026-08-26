@@ -1,0 +1,19 @@
+# CMake build
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# Compiled binaries
+*.o
+*.a
+*.so
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
