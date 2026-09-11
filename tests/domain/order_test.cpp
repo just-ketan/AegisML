@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "order.hpp"
+#include "orders/order.hpp"
 
 TEST(OrderStateTest, NewTransitions) {
     EXPECT_TRUE(

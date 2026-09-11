@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "market_event.hpp"
-#include "symbol.hpp"
+#include "events/market_event.hpp"
+#include "common/symbol.hpp"
 
 
 TEST(MarketEventTest, ValidTradeEvent)

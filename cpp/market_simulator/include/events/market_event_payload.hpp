@@ -1,7 +1,7 @@
 #pragma once
 
-#include "market_types.hpp"
-#include "order.hpp"
+#include "common/market_types.hpp"
+#include "orders/order.hpp"
 
 struct TradeEvent {
     Price price;

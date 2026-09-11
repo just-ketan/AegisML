@@ -3,14 +3,17 @@
 #include<cstddef>
 #include<unordered_map>
 
-#include "market_event.hpp"
-#include "order.hpp"
+#include "events/market_event.hpp"
+#include "orders/order.hpp"
 
 class OrderManager {
 public:
     bool process(const MarketEvent& event);
     const Order* find(OrderId id) const;
     std::size_t size() const;
+    
+    bool confirm_cancel(OrderId order_id);
+
 private:
     std::unordered_map<OrderId, Order> orders_;
 };

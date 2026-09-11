@@ -1,4 +1,4 @@
-#include "symbol.hpp"
+#include "common/symbol.hpp"
 
 #include <stdexcept>
 

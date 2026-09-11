@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "order_manager.hpp"
-#include "symbol.hpp"
+#include "orders/order_manager.hpp"
+#include "common/symbol.hpp"
 
 namespace {
 
@@ -133,4 +133,119 @@ TEST(OrderManagerTest, ExecuteUnknownOrderFails)
 
     EXPECT_FALSE(manager.process(event));
     EXPECT_EQ(manager.size(), 0);
+}
+
+TEST(OrderManagerTest, CancelMovesOrderToCancelPending)
+{
+    OrderManager manager;
+
+    EXPECT_TRUE(
+        manager.process(
+            make_add_event(1, 100, 1'500'000, 500)
+        )
+    );
+
+    MarketEvent cancel_event{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{2},
+        .symbol = make_symbol("AAPL"),
+        .payload = CancelOrderEvent{
+            .order_id = 100,
+            .quantity = 500
+        }
+    };
+
+    EXPECT_TRUE(manager.process(cancel_event));
+
+    const Order* order = manager.find(100);
+
+    ASSERT_NE(order, nullptr);
+    EXPECT_EQ(order->state(), OrderState::CancelPending);
+}
+
+TEST(OrderManagerTest, ConfirmCancelMovesOrderToCancelled)
+{
+    OrderManager manager;
+
+    EXPECT_TRUE(
+        manager.process(
+            make_add_event(1, 100, 1'500'000, 500)
+        )
+    );
+
+    MarketEvent cancel_event{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{2},
+        .symbol = make_symbol("AAPL"),
+        .payload = CancelOrderEvent{
+            .order_id = 100,
+            .quantity = 500
+        }
+    };
+
+    EXPECT_TRUE(manager.process(cancel_event));
+    EXPECT_TRUE(manager.confirm_cancel(100));
+
+    const Order* order = manager.find(100);
+
+    ASSERT_NE(order, nullptr);
+    EXPECT_EQ(order->state(), OrderState::Cancelled);
+}
+
+TEST(OrderManagerTest, CannotConfirmCancelBeforeRequest)
+{
+    OrderManager manager;
+
+    EXPECT_TRUE(
+        manager.process(
+            make_add_event(1, 100, 1'500'000, 500)
+        )
+    );
+
+    EXPECT_FALSE(manager.confirm_cancel(100));
+
+    const Order* order = manager.find(100);
+
+    ASSERT_NE(order, nullptr);
+    EXPECT_EQ(order->state(), OrderState::New);
+}
+
+
+TEST(OrderManagerTest, CancelledOrderCannotBeExecuted)
+{
+    OrderManager manager;
+
+    EXPECT_TRUE(
+        manager.process(
+            make_add_event(1, 100, 1'500'000, 500)
+        )
+    );
+
+    MarketEvent cancel_event{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{2},
+        .symbol = make_symbol("AAPL"),
+        .payload = CancelOrderEvent{
+            .order_id = 100,
+            .quantity = 500
+        }
+    };
+
+    EXPECT_TRUE(manager.process(cancel_event));
+    EXPECT_TRUE(manager.confirm_cancel(100));
+
+    EXPECT_FALSE(
+        manager.process(
+            make_execute_event(3, 100, 1'500'000, 100)
+        )
+    );
+
+    const Order* order = manager.find(100);
+
+    ASSERT_NE(order, nullptr);
+    EXPECT_EQ(order->filled_quantity(), 0);
+    EXPECT_EQ(order->state(), OrderState::Cancelled);
 }

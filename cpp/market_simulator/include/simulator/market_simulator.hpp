@@ -6,8 +6,8 @@
 #include <unordered_map>    // order lookup
 
 
-#include "market_data_source.hpp"
-#include "order.hpp"
+#include "interfaces/market_data_source.hpp"
+#include "orders/order.hpp"
 
 
 struct SimulationConfig{

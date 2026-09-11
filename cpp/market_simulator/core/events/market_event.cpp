@@ -1,4 +1,4 @@
-#include "market_event.hpp"
+#include "events/market_event.hpp"
 #include <type_traits>
 
 bool is_valid(const MarketEvent& event) {

@@ -1,4 +1,4 @@
-#include "order_manager.hpp"
+#include "orders/order_manager.hpp"
 #include <type_traits>
 
 bool OrderManager::process(const MarketEvent& event){
@@ -26,10 +26,23 @@ bool OrderManager::process(const MarketEvent& event){
                 return false;
             }
             return it->second.apply_fill(payload.quantity);
+        }else if constexpr (std::is_same_v<T, CancelOrderEvent>){
+            auto it = orders_.find(payload.order_id);
+            if(it == orders_.end()){ return false;  }
+
+            return it->second.transition(OrderState::CancelPending);
         }else{
+            // TradeEvent and QuoteEvent are not owned by OrderManager
             return true;
-            }
-        }, event.payload );
+        }
+    }, event.payload );
+}
+
+bool OrderManager::confirm_cancel(OrderId order_id){
+    auto it = orders_.find(order_id);
+    if(it == orders_.end()) return false;
+
+    return it->second.transition(OrderState::Cancelled);
 }
 
 const Order* OrderManager::find(OrderId id) const {

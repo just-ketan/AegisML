@@ -1,8 +1,8 @@
 #include <iostream>
 #include <variant>
 
-#include "market_simulator.hpp"
-#include "symbol.hpp"
+#include "simulator/market_simulator.hpp"
+#include "common/symbol.hpp"
 
 int main() {
     SimulationConfig config{

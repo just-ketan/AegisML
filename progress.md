@@ -122,3 +122,26 @@ we are restructuring the repo to have the following structure for maintainance a
                             ▼
                        order book
 ```
+
+### how to handle cancel events ?
+
+```yaml
+                  AddOrderEvent
+                       │
+                       ▼
+                     New
+                       │
+              ┌────────┴────────┐
+              │                 │
+         Execute             Cancel
+              │                 │
+              ▼                 ▼
+     PartiallyFilled      CancelPending
+              │                 │
+         Execute           confirmation
+              │                 │
+              ▼                 ▼
+           Filled             Cancelled
+```
+cancel event goes throught intermediate steps before considered as terminated. so `it need not necessarily mean that the cancellation has already completed`
+

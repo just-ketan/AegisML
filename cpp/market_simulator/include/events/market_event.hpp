@@ -2,9 +2,9 @@
 
 #include <variant>
 
-#include "market_event_payload.hpp"
-#include "market_types.hpp"
-#include "symbol.hpp"
+#include "events/market_event_payload.hpp"
+#include "common/market_types.hpp"
+#include "common/symbol.hpp"
 
 using MarketEventPayload = std::variant<
     TradeEvent,

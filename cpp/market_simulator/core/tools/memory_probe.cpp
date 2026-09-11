@@ -2,11 +2,11 @@
 #include <iostream>
 #include <variant>
 
-#include "market_event.hpp"
-#include "market_event_payload.hpp"
-#include "market_types.hpp"
-#include "order.hpp"
-#include "symbol.hpp"
+#include "events/market_event.hpp"
+#include "events/market_event_payload.hpp"
+#include "common/market_types.hpp"
+#include "orders/order.hpp"
+#include "common/symbol.hpp"
 
 
 int main()

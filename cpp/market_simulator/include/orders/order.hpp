@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include "market_types.hpp"
+#include "common/market_types.hpp"
 
 using OrderId = std::uint64_t;
 

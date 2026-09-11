@@ -2,8 +2,8 @@
 
 #include <vector>
 
-#include "market_simulator.hpp"
-#include "symbol.hpp"
+#include "simulator/market_simulator.hpp"
+#include "common/symbol.hpp"
 
 
 TEST(MarketSimulatorTest, GeneratesExactNumberOfEvents)
