@@ -38,6 +38,7 @@ add_library(
     cpp/market_simulator/src/market_event.cpp
     cpp/market_simulator/src/market_simulator.cpp
     cpp/market_simulator/src/symbol.cpp
+    cpp/market_simulator/src/order_manager.cpp
 )
 
 target_include_directories(
@@ -103,3 +104,31 @@ target_link_libraries(
     PRIVATE
         market_simulator
 )
+
+add_executable(
+    order_tests
+    tests/order_test.cpp
+)
+
+target_link_libraries(
+    order_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(order_tests)
+
+add_executable(
+    order_manager_tests
+    tests/order_manager_test.cpp
+)
+
+target_link_libraries(
+    order_manager_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(order_manager_tests)

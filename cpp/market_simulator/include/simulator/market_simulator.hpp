@@ -3,8 +3,12 @@
 #include <cstdint>
 #include <random>
 #include <vector>
+#include <unordered_map>    // order lookup
+
 
 #include "market_data_source.hpp"
+#include "order.hpp"
+
 
 struct SimulationConfig{
     std::uint64_t event_count;
@@ -31,4 +35,7 @@ class MarketSimulator final : public IMarketDataSource{
         std::uniform_int_distribution<int> event_type_distribution_;
         std::uniform_int_distribution<Price> price_distribution_;
         std::uniform_int_distribution<Quantity> quantity_distribution_;
+
+        // order lookup
+        std::unordered_map<OrderId, Order> active_order_ids_;
 };

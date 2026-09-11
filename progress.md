@@ -41,3 +41,84 @@ NEW
  └──> REJECTED
 ```
 `Market events describe what happened; order state describes the current truth of the order.`
+```yaml
+             Order
+               │
+       ┌───────┴────────┐
+       │                │
+ original            lifecycle
+ quantity             state
+       │                │
+      100              NEW
+       │
+ ┌─────┴─────┐
+ │           │
+filled     remaining
+  0           100
+```
+
+### connect executeOrderEvent to `order` lifecycle
+```yaml
+AddOrderEvent
+      │
+      ▼
+ Order created
+      │
+      │ order_id = 42
+      ▼
+Order stored in lookup
+      │
+      ├──────────────┐
+      ▼              ▼
+CancelOrder(42)   ExecuteOrder(42)
+                     │
+                     ▼
+              Order::apply_fill()
+                     │
+             ┌───────┴───────┐
+             ▼               ▼
+        Partial fill     Full fill
+```
+
+### how the data moves ?
+
+```yaml
+IMarketDataSource
+        │
+        ▼
+MarketSimulator
+        │
+        │ produces
+        ▼
+   MarketEvent
+```
+MarketEvent is deliberately just a value object and payload is std::variant
+```yaml
+event_id
+sequence_number
+timestamp
+symbol
+payload
+```
+we will keep `MarketSimulator::next_event()` as purely an event generator so that `MarketSimulator generates events` and `OrderManager maintains order state + processes (add/exec/cancel) tasks`
+
+### Repo restructure
+
+we are restructuring the repo to have the following structure for maintainance and readability
+```yaml
+                    AegisML Market Engine
+                            │
+          ┌─────────────────┼─────────────────┐
+          │                 │                 │
+       Events             Orders           Market
+          │                 │                 │
+          │                 │                 │
+          ▼                 ▼                 ▼
+      event bus        order manager      data source
+                            │
+                            ▼
+                     matching engine
+                            │
+                            ▼
+                       order book
+```
