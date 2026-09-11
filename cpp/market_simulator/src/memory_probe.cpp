@@ -1,12 +1,18 @@
 #include <cstddef>
 #include <iostream>
+#include <variant>
 
 #include "market_event.hpp"
+#include "market_event_payload.hpp"
+#include "market_types.hpp"
+#include "order.hpp"
+#include "symbol.hpp"
 
-int main() {
 
-    std::cout << "MarketEvent\n";
-    std::cout << "-------------------------\n";
+int main()
+{
+    std::cout << "MarketEvent Memory Layout\n";
+    std::cout << "========================\n\n";
 
     std::cout
         << "sizeof(MarketEvent): "
@@ -19,44 +25,81 @@ int main() {
         << " bytes\n\n";
 
 
+    std::cout << "Payload Sizes\n";
+    std::cout << "-------------\n";
+
+    std::cout
+        << "sizeof(TradeEvent): "
+        << sizeof(TradeEvent)
+        << " bytes\n";
+
+    std::cout
+        << "sizeof(QuoteEvent): "
+        << sizeof(QuoteEvent)
+        << " bytes\n";
+
+    std::cout
+        << "sizeof(AddOrderEvent): "
+        << sizeof(AddOrderEvent)
+        << " bytes\n";
+
+    std::cout
+        << "sizeof(CancelOrderEvent): "
+        << sizeof(CancelOrderEvent)
+        << " bytes\n";
+
+    std::cout
+        << "sizeof(ExecuteOrderEvent): "
+        << sizeof(ExecuteOrderEvent)
+        << " bytes\n";
+
+    std::cout
+        << "sizeof(MarketEventPayload): "
+        << sizeof(MarketEventPayload)
+        << " bytes\n\n";
+
+
+    std::cout << "Primitive Types\n";
+    std::cout << "---------------\n";
+
     std::cout
         << "sizeof(EventId): "
         << sizeof(EventId)
-        << '\n';
+        << " bytes\n";
 
     std::cout
         << "sizeof(SequenceNumber): "
         << sizeof(SequenceNumber)
-        << '\n';
+        << " bytes\n";
 
     std::cout
         << "sizeof(Timestamp): "
         << sizeof(Timestamp)
-        << '\n';
+        << " bytes\n";
 
     std::cout
-        << "sizeof(std::vector<char>): "
-        << sizeof(std::vector<char>)
-        << '\n';
+        << "sizeof(Symbol): "
+        << sizeof(Symbol)
+        << " bytes\n";
 
     std::cout
-        << "sizeof(EventType): "
-        << sizeof(EventType)
-        << '\n';
+        << "sizeof(OrderId): "
+        << sizeof(OrderId)
+        << " bytes\n";
 
     std::cout
         << "sizeof(Price): "
         << sizeof(Price)
-        << '\n';
+        << " bytes\n";
 
     std::cout
         << "sizeof(Quantity): "
         << sizeof(Quantity)
-        << '\n';
+        << " bytes\n\n";
 
 
-    std::cout << "\nOffsets\n";
-    std::cout << "-------------------------\n";
+    std::cout << "MarketEvent Offsets\n";
+    std::cout << "-------------------\n";
 
     std::cout
         << "event_id: "
@@ -79,51 +122,53 @@ int main() {
         << '\n';
 
     std::cout
-        << "event_type: "
-        << offsetof(MarketEvent, event_type)
+        << "payload: "
+        << offsetof(MarketEvent, payload)
+        << '\n';
+
+
+    std::cout << "\nVariant Information\n";
+    std::cout << "-------------------\n";
+
+    std::cout
+        << "variant alternatives: "
+        << std::variant_size_v<MarketEventPayload>
         << '\n';
 
     std::cout
-        << "price: "
-        << offsetof(MarketEvent, price)
+        << "MarketEventPayload alignment: "
+        << alignof(MarketEventPayload)
+        << " bytes\n";
+
+
+    std::cout << "\nSymbol Storage\n";
+    std::cout << "--------------\n";
+
+    MarketEvent event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = make_symbol("AAPL"),
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    std::cout
+        << "symbol.size(): "
+        << event.symbol.size()
         << '\n';
 
     std::cout
-        << "quantity: "
-        << offsetof(MarketEvent, quantity)
+        << "&event.symbol: "
+        << static_cast<const void*>(&event.symbol)
         << '\n';
 
-    std::cout << "\nSymbol storage\n";
-std::cout << "-------------------------\n";
+    std::cout
+        << "event.symbol.data(): "
+        << static_cast<const void*>(event.symbol.data())
+        << '\n';
 
-MarketEvent event{
-    .event_id = 1,
-    .sequence_number = 1,
-    .timestamp = Timestamp{100},
-    .symbol = {'A', 'A', 'P', 'L'},
-    .event_type = EventType::Trade,
-    .price = 2254300,
-    .quantity = 100
-};
-
-std::cout
-    << "symbol.size(): "
-    << event.symbol.size()
-    << '\n';
-
-std::cout
-    << "symbol.capacity(): "
-    << event.symbol.capacity()
-    << '\n';
-
-std::cout
-    << "&event.symbol: "
-    << static_cast<const void*>(&event.symbol)
-    << '\n';
-
-std::cout
-    << "event.symbol.data(): "
-    << static_cast<const void*>(event.symbol.data())
-    << '\n';
     return 0;
 }

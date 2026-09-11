@@ -1,5 +1,5 @@
 #include "market_simulator.hpp"
-
+#include "event_type.hpp"
 #include <stdexcept>
 #include <utility>
 
@@ -33,15 +33,54 @@ bool MarketSimulator::next_event(MarketEvent& event){
 
     // select random event type
     const int event_type_value = event_type_distribution_(rng_);
-    event.event_type = static_cast<EventType>(event_type_value);
-
-    // fixed point price range from 1,000,000 -> 100,0000 and 2,000,000 -> 200,0000
-    event.price = price_distribution_(rng_);
-    event.quantity = quantity_distribution_(rng_);
+    
+    switch(static_cast<EventType>(event_type_value)){
+        case EventType::Trade:{
+            TradeEvent trade_event;
+            trade_event.price = price_distribution_(rng_);
+            trade_event.quantity = quantity_distribution_(rng_);
+            event.payload = std::move(trade_event);
+            break;
+        }
+        case EventType::Quote:{
+            QuoteEvent quote_event;
+            quote_event.bid_price = price_distribution_(rng_);
+            quote_event.bid_quantity = quantity_distribution_(rng_);
+            quote_event.asking_price = price_distribution_(rng_);
+            quote_event.asking_quantity = quantity_distribution_(rng_);
+            event.payload = std::move(quote_event);
+            break;
+        }
+        case EventType::Add:{
+            AddOrderEvent add_order_event;
+            add_order_event.order_id = next_order_id_++;
+            add_order_event.side = (event_type_distribution_(rng_) % 2 == 0) ? Side::Buy : Side::Sell;
+            add_order_event.price = price_distribution_(rng_);
+            add_order_event.quantity = quantity_distribution_(rng_);
+            event.payload = std::move(add_order_event);
+            break;
+        }
+        case EventType::Cancel:{
+            CancelOrderEvent cancel_order_event;
+            cancel_order_event.order_id = next_sequence_number_++;
+            cancel_order_event.quantity = quantity_distribution_(rng_);
+            event.payload = std::move(cancel_order_event);
+            break;
+        }
+        case EventType::Execute:{
+            ExecuteOrderEvent execute_order_event;
+            execute_order_event.order_id = next_sequence_number_++;
+            execute_order_event.price = price_distribution_(rng_);
+            execute_order_event.quantity = quantity_distribution_(rng_);
+            event.payload = std::move(execute_order_event);
+            break;
+        }
+    };
 
     ++events_generated_;
-    if (!is_valid(event)) {
-        throw std::runtime_error("MarketSimulator generated invalid MarketEvent");
+
+    if(!is_valid(event)){
+        throw std::runtime_error("Generated invalid event");
     }
 
     return true;

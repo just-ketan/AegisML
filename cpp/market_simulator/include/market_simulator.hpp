@@ -9,7 +9,7 @@
 struct SimulationConfig{
     std::uint64_t event_count;
     std::uint64_t seed;
-    std::vector<std::vector<char>> symbols;
+    std::vector<Symbol> symbols;
 };
 
 class MarketSimulator final : public IMarketDataSource{
@@ -23,6 +23,7 @@ class MarketSimulator final : public IMarketDataSource{
         std::mt19937_64 rng_;
         std::uint64_t events_generated_ = 0;
         std::uint64_t next_event_id_ = 1;
+        std::uint64_t next_order_id_ = 1;
         std::uint64_t next_sequence_number_ = 1;
         Timestamp current_timestamp_{0};
 

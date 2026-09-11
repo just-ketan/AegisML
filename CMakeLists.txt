@@ -35,9 +35,9 @@ add_compile_options(
 add_library(
     market_simulator
     STATIC
-
     cpp/market_simulator/src/market_event.cpp
     cpp/market_simulator/src/market_simulator.cpp
+    cpp/market_simulator/src/symbol.cpp
 )
 
 target_include_directories(
