@@ -249,3 +249,46 @@ TEST(OrderManagerTest, CancelledOrderCannotBeExecuted)
     EXPECT_EQ(order->filled_quantity(), 0);
     EXPECT_EQ(order->state(), OrderState::Cancelled);
 }
+
+TEST(OrderManagerTest, ExecuteMethodPartiallyFillsOrder)
+{
+    OrderManager manager;
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(1, 100, 15000, 100)
+    ));
+
+    EXPECT_TRUE(manager.execute(100, 40));
+
+    const Order* order = manager.find(100);
+
+    ASSERT_NE(order, nullptr);
+    EXPECT_EQ(order->filled_quantity(), 40);
+    EXPECT_EQ(order->remaining_quantity(), 60);
+    EXPECT_EQ(order->state(), OrderState::PartiallyFilled);
+}
+
+TEST(OrderManagerTest, ExecuteMethodFullyFillsOrder)
+{
+    OrderManager manager;
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(1, 100, 15000, 100)
+    ));
+
+    EXPECT_TRUE(manager.execute(100, 100));
+
+    const Order* order = manager.find(100);
+
+    ASSERT_NE(order, nullptr);
+    EXPECT_EQ(order->filled_quantity(), 100);
+    EXPECT_EQ(order->remaining_quantity(), 0);
+    EXPECT_EQ(order->state(), OrderState::Filled);
+}
+
+TEST(OrderManagerTest, ExecuteMethodRejectsUnknownOrder)
+{
+    OrderManager manager;
+
+    EXPECT_FALSE(manager.execute(999, 50));
+}

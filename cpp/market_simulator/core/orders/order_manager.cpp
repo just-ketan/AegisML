@@ -38,6 +38,12 @@ bool OrderManager::process(const MarketEvent& event){
     }, event.payload );
 }
 
+bool OrderManager::execute(OrderId order_id, Quantity qtty){
+    auto it = orders_.find(order_id);
+    if(it == orders_.end()){    return false;   }
+    return it->second.apply_fill(qtty);
+}
+
 bool OrderManager::confirm_cancel(OrderId order_id){
     auto it = orders_.find(order_id);
     if(it == orders_.end()) return false;

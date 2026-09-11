@@ -54,6 +54,8 @@ add_library(
 
     # Orders
     cpp/market_simulator/core/orders/order_manager.cpp
+    cpp/market_simulator/core/orders/order_book.cpp
+    cpp/market_simulator/core/orders/matching_engine.cpp
 
     # Simulator
     cpp/market_simulator/core/simulator/market_simulator.cpp
@@ -132,6 +134,33 @@ target_link_libraries(
 
 gtest_discover_tests(order_manager_tests)
 
+add_executable(
+    order_book_tests
+    tests/orders/order_book_test.cpp
+)
+
+target_link_libraries(
+    order_book_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(order_book_tests)
+
+add_executable(
+    matching_engine_tests
+    tests/orders/matching_engine_test.cpp
+)
+
+target_link_libraries(
+    matching_engine_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(matching_engine_tests)
 
 # Simulator Tests
 add_executable(

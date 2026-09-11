@@ -29,9 +29,10 @@ enum class OrderState : std::uint64_t {
 };
 
 constexpr bool can_transition(OrderState from, OrderState to){
+    // no direct edge from New ───────────────► Cancelled
     switch(from){
         case OrderState::New:
-            return to==OrderState::PartiallyFilled || to==OrderState::Filled || to==OrderState::CancelPending || to==OrderState::Cancelled || to==OrderState::Rejected;
+            return to==OrderState::PartiallyFilled || to==OrderState::Filled || to==OrderState::CancelPending || to==OrderState::Rejected;
         case OrderState::PartiallyFilled:
             return to==OrderState::Filled || to==OrderState::CancelPending;
         case OrderState::CancelPending:
@@ -47,7 +48,7 @@ constexpr bool can_transition(OrderState from, OrderState to){
 
 class Order{
     public:
-        constexpr Order(OrderId id, Side side, double price, std::uint64_t quantity)
+        constexpr Order(OrderId id, Side side, Price price, std::uint64_t quantity)
             : id_(id), side_(side), price_(price), quantity_(quantity), filled_quantity_(0), remaining_quantity_(quantity),state_(OrderState::New) {}
         
         constexpr OrderId id() const { return id_; }

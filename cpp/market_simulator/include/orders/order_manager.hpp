@@ -9,6 +9,8 @@
 class OrderManager {
 public:
     bool process(const MarketEvent& event);
+    bool execute(OrderId order_id, Quantity qtty);
+    
     const Order* find(OrderId id) const;
     std::size_t size() const;
     
