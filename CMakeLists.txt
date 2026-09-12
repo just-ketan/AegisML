@@ -62,6 +62,10 @@ add_library(
 
     # Engine
     cpp/market_simulator/core/engine/trading_engine.cpp
+    
+    # Market State
+    cpp/market_simulator/core/market/market_state.cpp
+    cpp/market_simulator/core/market/market_state_manager.cpp
 
     # Simulator
     cpp/market_simulator/core/simulator/market_simulator.cpp
@@ -230,3 +234,31 @@ target_link_libraries(
         GTest::gtest_main
 )
 gtest_discover_tests(trading_engine_tests)
+
+# Market State Tests
+add_executable(
+    market_state_tests
+    tests/market/market_state_test.cpp
+)
+target_link_libraries(
+    market_state_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+gtest_discover_tests(market_state_tests)
+
+# Market State Manager Tests
+add_executable(
+    market_state_manager_tests
+    tests/market/market_state_manager_test.cpp
+)
+
+target_link_libraries(
+    market_state_manager_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(market_state_manager_tests)

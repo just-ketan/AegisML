@@ -599,3 +599,81 @@ we will start with minimal execution and then find our way to complete suite. SO
                                   ▼
                               Execution
 ```
+
+### symbol scoped market state
+
+we made the key architectural decision that EACH SYMBOL GETS ITS OWN MARKET STATE, and orderBook maintains a concrete class
+```yaml
+                         TradingEngine
+                              │
+                              ▼
+                    MarketStateManager
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+            AAPL            GOOGL            MSFT
+              │               │               │
+         MarketState     MarketState     MarketState
+          ┌────┴────┐     ┌────┴────┐     ┌────┴────┐
+          │         │     │         │     │         │
+     OrderBook  Matching OrderBook Matching ...    ...
+```
+so the ownership model translates to 
+```yaml
+TradingEngine
+│
+├── OrderManager
+│      └── ALL orders
+│
+├── MarketStateManager
+│      │
+│      ├── AAPL → MarketState
+│      │             ├── OrderBook
+│      │             └── MatchingEngine
+│      │
+│      ├── GOOGL → MarketState
+│      │             ├── OrderBook
+│      │             └── MatchingEngine
+│      │
+│      └── MSFT → MarketState
+│                    ├── OrderBook
+│                    └── MatchingEngine
+│
+└── ExecutionRecorder
+```
+
+### architectural milestone
+
+the current architecure evolves as
+```yaml
+TradingEngine
+│
+├── OrderManager
+│
+├── MarketStateManager
+│     │
+│     ├── AAPL → MarketState
+│     │           ├── OrderBook
+│     │           └── MatchingEngine
+│     │
+│     └── GOOGL → MarketState
+│                 ├── OrderBook
+│                 └── MatchingEngine
+│
+└── ExecutionRecorder
+```
+
+so now the StateManage rmaintains separation between books
+```yaml
+              MarketStateManager
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+        AAPL                 GOOGL
+          │                   │
+          ▼                   ▼
+      OrderBook A         OrderBook B
+          │                   │
+       SELL 50             BUY 100
+       @10100              @10200
+```
