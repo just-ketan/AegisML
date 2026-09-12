@@ -85,6 +85,8 @@ target_link_libraries(
 # ------------------------------------------------------------
 # Testing
 # ------------------------------------------------------------
+include(CTest)
+enable_testing()
 
 include(GoogleTest)
 

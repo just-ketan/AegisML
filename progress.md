@@ -436,3 +436,107 @@ match()
         ├── execute resting
         └── remove filled resting order
 ```
+
+so we have succesfully implemented `selection logic -> match()`, `execution logic -> execute_match()` and `book lifecycle -> rest_if_needed()`. Now the pipeline coverts to 
+```yaml
+incoming
+   ↓
+best opposing order
+   ↓
+trade
+   ↓
+still quantity remaining?
+   │
+   ├── YES → find NEW best opposing order
+   │            ↓
+   │          trade
+   │            ↓
+   │          repeat
+   │
+   └── NO → Filled
+```
+
+so after multi level matching the flow converge to 
+```yaml
+                 Incoming Order
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ Find best level  │
+              └────────┬────────┘
+                       │
+                 Does it cross?
+                  /          \
+                NO            YES
+                │              │
+                ▼              ▼
+              REST       execute_match()
+                               │
+                         remove if filled
+                               │
+                               ▼
+                       quantity remaining?
+                          /          \
+                        YES           NO
+                         │             │
+                         └─── loop ───► Filled
+```
+
+### Refining architectural boundary
+our engine can now execute T1 T2 T3.... trades, but `match(...)` returns `ONE` std::optional<Trade>. we need proper tracking, so we need a MatchResult to store the vector of Trades done.
+```yaml
+MatchingEngine
+      │
+      ▼
+ MatchResult
+      │
+      ├── Execution events
+      ├── P&L
+      ├── Market data
+      ├── Trade logging
+      └── Simulator statistics
+```
+
+### current verification status of AegisML
+
+| Component                 |      Status |
+| ------------------------- | ----------: |
+| MarketEvent validation    |           ✅ |
+| Order state machine       |           ✅ |
+| Order                     |           ✅ |
+| OrderManager              |           ✅ |
+| OrderBook                 |           ✅ |
+| MatchingEngine            |     ✅ 15/15 |
+| Multi-level matching      |           ✅ |
+| FIFO price/time priority  |           ✅ |
+| Incoming order resting    |           ✅ |
+| MarketSimulator           |           ✅ |
+| Deterministic generation  |           ✅ |
+| Batch generation          |           ✅ |
+| CMake / CTest integration |           ✅ |
+| **Total**                 | **99/99 ✅** |
+
+moreover, we have a coherent system
+```yaml
+                    AegisML
+                       │
+              MarketSimulator
+                       │
+                  MarketEvent
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+     OrderManager              Market Data
+          │
+          │
+      Order State
+          │
+          ▼
+      MatchingEngine
+          │
+          ▼
+       Trade[]
+          │
+          ▼
+     [NEXT LAYER]
+```

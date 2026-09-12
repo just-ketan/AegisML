@@ -36,108 +36,59 @@ std::optional<Trade> MatchingEngine::execute_match(OrderId incoming_order_id, Or
     };
 }
 
-std::optional<Trade> MatchingEngine::match(OrderId incoming_order_id){
+MatchResult MatchingEngine::match(OrderId incoming_order_id){
+    MatchResult result;
+
     const Order* incoming = order_manager_.find(incoming_order_id);
-    if(incoming == nullptr){    return std::nullopt;    }
+    if(incoming == nullptr){    return result;    }
 
-    if(incoming->state() != OrderState::New && incoming->state() != OrderState::PartiallyFilled){   return std::nullopt; }
-    if(incoming->remaining_quantity() <= 0){    return std::nullopt; }
+    if(incoming->state() != OrderState::New && incoming->state() != OrderState::PartiallyFilled){   return result; }
+    if(incoming->remaining_quantity() <= 0){    return result; }
 
-    // buy side
-    if(incoming->side() == Side::Buy){
-        const auto best_ask = order_book_.best_ask();
-        if(!best_ask.has_value()){  
-            if(!rest_if_needed(incoming_order_id)){
-                return std::nullopt;    
-            }
-            return std::nullopt;
+    while(true){
+        incoming = order_manager_.find(incoming_order_id);
+        if(incoming == nullptr){    return result;    }
+        if(incoming->remaining_quantity() <= 0){    break;    }
+
+        // buy side
+        if(incoming->side() == Side::Buy){
+            const auto best_ask = order_book_.best_ask();
+            if(!best_ask.has_value()){  break;  }
+
+            const Order* resting = order_manager_.find(*best_ask);
+            if(resting == nullptr){ return result;    }
+
+            if(incoming->price() < resting->price()){   break;  }
+
+            const auto trade = execute_match(incoming_order_id, resting->id());
+            if(!trade.has_value()){ return result;    }
+            result.trades.push_back(*trade);
+
+            continue;
         }
 
-        const Order* resting = order_manager_.find(*best_ask);
-        if(resting == nullptr){ return std::nullopt;    }
+        // sell side
+        if(incoming->side() == Side::Sell){
+            const auto best_bid = order_book_.best_bid();
+            if(!best_bid.has_value()){  break;  }   // no liquidity case
+            
+            const Order* resting = order_manager_.find(*best_bid);
+            if(resting == nullptr){ return result;    }
 
-        if(incoming->price() < resting->price()){
-            if(!rest_if_needed(incoming_order_id)){
-                return std::nullopt;
-            }
-            return std::nullopt;
+            if(incoming->price() > resting->price()){   break;  }
+
+            const auto trade = execute_match(incoming_order_id, resting->id());
+            if(!trade.has_value()){ return result;    }
+            result.trades.push_back(*trade);
+
+            continue;
         }
 
-        const auto trade = execute_match(incoming_order_id, resting->id());
-        if(!trade.has_value()){ return std::nullopt;    }
-        if(!rest_if_needed(incoming_order_id)){ return std::nullopt;    }
-
-        return trade;
+        return result;
     }
-    /*
-    so the sequence becomes
-            execute resting
-            ↓
-        check updated state
-            ↓
-        Filled?
-        /     \
-        yes      no
-        ↓        ↓
-        remove    remain
-        from book
-    */
+    // now we have no more executable liquidity
+    // if theres still remining quantity in the incoming request, place it in the order book
+    if(!rest_if_needed(incoming_order_id)){ return result;    }
 
-
-    // sell side
-    if(incoming->side() == Side::Sell){
-        const auto best_bid = order_book_.best_bid();
-        if(!best_bid.has_value()){  // no liquidity case
-            if(!rest_if_needed(incoming_order_id)){
-                return std::nullopt;
-            }return std::nullopt;    
-        }
-        
-        const Order* resting = order_manager_.find(*best_bid);
-        if(resting == nullptr){ return std::nullopt;    }
-
-        if(incoming->price() > resting->price()){
-            if(!rest_if_needed(incoming_order_id)){
-                return std::nullopt;
-            }
-            return std::nullopt;
-        }
-        // const Quantity qtty = incoming->remaining_quantity() < resting->remaining_quantity() ? incoming->remaining_quantity() : resting->remaining_quantity();
-
-        // if(!order_manager_.execute(incoming_order_id, qtty)){   return std::nullopt;    }
-        // if(!order_manager_.execute(resting->id(), qtty)){   return std::nullopt;    }
-
-        // const Order* updated_resting = order_manager_.find(resting->id());
-        // if(updated_resting == nullptr){ return std::nullopt;    }
-        // // if(updated_resting->state() == OrderState::Filled){
-        // //     if(!order_book_.remove(updated_resting->id())){
-        // //         return std::nullopt;
-        // //     }
-        // // }
-
-        // if (updated_resting->state() == OrderState::Filled) {
-        //     const bool removed =
-        //         order_book_.remove(updated_resting->id());
-
-        //     if (!removed) {
-        //         return std::nullopt;
-        //     }
-        // }
-
-        // //rest needed
-        // if(!rest_if_needed(incoming_order_id)){ return std::nullopt;    }
-
-        // return Trade{
-        //     .incoming_order_id = incoming_order_id,
-        //     .resting_order_id = resting->id(),
-        //     .price = resting->price(),
-        //     .quantity = qtty
-        // };
-
-        const auto trade = execute_match(incoming_order_id, resting->id());
-        if(!trade.has_value()){ return std::nullopt;    }
-        if(!rest_if_needed(incoming_order_id)){ return std::nullopt;    }
-        return trade;
-    }
-    return std::nullopt;
+    return result;
 }

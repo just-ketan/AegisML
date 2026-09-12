@@ -14,7 +14,7 @@ bool is_valid(const MarketEvent& event) {
             return payload.price > 0 && payload.quantity > 0;
         } else if constexpr (std::is_same_v<T, QuoteEvent>) {
             return payload.bid_price > 0 && payload.bid_quantity > 0 &&
-                   payload.asking_price > 0 && payload.asking_quantity > 0;
+                   payload.asking_price > 0 && payload.asking_quantity > 0 && payload.bid_price < payload.asking_price;
         } else if constexpr (std::is_same_v<T, AddOrderEvent>) {
             return payload.order_id > 0 && is_valid_side(payload.side) &&
                    payload.price > 0 && payload.quantity > 0;

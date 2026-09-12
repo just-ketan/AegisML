@@ -50,12 +50,13 @@ TEST(MatchingEngineTest, BuyMatchesBestAsk)
 
     const auto trade = engine.match(200);
 
-    ASSERT_TRUE(trade.has_value());
+    ASSERT_TRUE(trade.has_trades());
+ASSERT_EQ(trade.trade_count(), 1);
 
-    EXPECT_EQ(trade->incoming_order_id, 200);
-    EXPECT_EQ(trade->resting_order_id, 100);
-    EXPECT_EQ(trade->price, 10000);
-    EXPECT_EQ(trade->quantity, 100);
+    EXPECT_EQ(trade.trades[0].incoming_order_id, 200);
+    EXPECT_EQ(trade.trades[0].resting_order_id, 100);
+    EXPECT_EQ(trade.trades[0].price, 10000);
+    EXPECT_EQ(trade.trades[0].quantity, 100);
 }
 
 TEST(MatchingEngineTest, SellMatchesBestBid)
@@ -80,12 +81,13 @@ TEST(MatchingEngineTest, SellMatchesBestBid)
 
     const auto trade = engine.match(200);
 
-    ASSERT_TRUE(trade.has_value());
+    ASSERT_TRUE(trade.has_trades());
+ASSERT_EQ(trade.trade_count(), 1);
 
-    EXPECT_EQ(trade->incoming_order_id, 200);
-    EXPECT_EQ(trade->resting_order_id, 100);
-    EXPECT_EQ(trade->price, 10000);
-    EXPECT_EQ(trade->quantity, 100);
+    EXPECT_EQ(trade.trades[0].incoming_order_id, 200);
+    EXPECT_EQ(trade.trades[0].resting_order_id, 100);
+    EXPECT_EQ(trade.trades[0].price, 10000);
+    EXPECT_EQ(trade.trades[0].quantity, 100);
 }
 
 TEST(MatchingEngineTest, BuyDoesNotMatchAboveBestAsk)
@@ -110,7 +112,7 @@ TEST(MatchingEngineTest, BuyDoesNotMatchAboveBestAsk)
 
     const auto trade = engine.match(200);
 
-    EXPECT_FALSE(trade.has_value());
+    EXPECT_FALSE(trade.has_trades());
 }
 
 TEST(MatchingEngineTest, SellDoesNotMatchBelowBestBid)
@@ -135,7 +137,7 @@ TEST(MatchingEngineTest, SellDoesNotMatchBelowBestBid)
 
     const auto trade = engine.match(200);
 
-    EXPECT_FALSE(trade.has_value());
+    EXPECT_FALSE(trade.has_trades());
 }
 
 TEST(MatchingEngineTest, TradeUsesRestingOrderPrice)
@@ -160,9 +162,10 @@ TEST(MatchingEngineTest, TradeUsesRestingOrderPrice)
 
     const auto trade = engine.match(200);
 
-    ASSERT_TRUE(trade.has_value());
+    ASSERT_TRUE(trade.has_trades());
+ASSERT_EQ(trade.trade_count(), 1);
 
-    EXPECT_EQ(trade->price, 10000);
+    EXPECT_EQ(trade.trades[0].price, 10000);
 }
 
 TEST(MatchingEngineTest, TradeQuantityUsesSmallerRemainingQuantity)
@@ -187,9 +190,10 @@ TEST(MatchingEngineTest, TradeQuantityUsesSmallerRemainingQuantity)
 
     const auto trade = engine.match(200);
 
-    ASSERT_TRUE(trade.has_value());
+    ASSERT_TRUE(trade.has_trades());
+ASSERT_EQ(trade.trade_count(), 1);
 
-    EXPECT_EQ(trade->quantity, 60);
+    EXPECT_EQ(trade.trades[0].quantity, 60);
 
     const Order* incoming = manager.find(200);
     ASSERT_NE(incoming, nullptr);
@@ -212,7 +216,7 @@ TEST(MatchingEngineTest, UnknownIncomingOrderDoesNotMatch)
 
     MatchingEngine engine(manager, book);
 
-    EXPECT_FALSE(engine.match(999).has_value());
+    EXPECT_FALSE(engine.match(999).has_trades());
 }
 
 TEST(MatchingEngineTest, FilledIncomingOrderDoesNotMatch)
@@ -228,7 +232,7 @@ TEST(MatchingEngineTest, FilledIncomingOrderDoesNotMatch)
 
     MatchingEngine engine(manager, book);
 
-    EXPECT_FALSE(engine.match(100).has_value());
+    EXPECT_FALSE(engine.match(100).has_trades());
 }
 
 TEST(MatchingEngineTest, RemovesFullyFilledRestingOrderFromBook)
@@ -254,7 +258,8 @@ TEST(MatchingEngineTest, RemovesFullyFilledRestingOrderFromBook)
 
     const auto trade = engine.match(200);
 
-    ASSERT_TRUE(trade.has_value());
+    ASSERT_TRUE(trade.has_trades());
+ASSERT_EQ(trade.trade_count(), 1);
 
     EXPECT_EQ(manager.find(100)->state(), OrderState::Filled);
     EXPECT_FALSE(book.contains(100));
@@ -284,7 +289,8 @@ TEST(MatchingEngineTest, KeepsPartiallyFilledRestingOrderInBook)
 
     const auto trade = engine.match(200);
 
-    ASSERT_TRUE(trade.has_value());
+    ASSERT_TRUE(trade.has_trades());
+ASSERT_EQ(trade.trade_count(), 1);
 
     const Order* updated = manager.find(100);
 
@@ -320,7 +326,7 @@ TEST(MatchingEngineTest, UnmatchedIncomingOrderRestsInBook)
 
     const auto trade = engine.match(200);
 
-    EXPECT_FALSE(trade.has_value());
+    EXPECT_FALSE(trade.has_trades());
 
     EXPECT_TRUE(book.contains(200));
     EXPECT_EQ(book.size(), 2);
@@ -350,7 +356,8 @@ TEST(MatchingEngineTest, PartiallyMatchedIncomingOrderRestsInBook)
 
     const auto trade = engine.match(200);
 
-    ASSERT_TRUE(trade.has_value());
+    ASSERT_TRUE(trade.has_trades());
+    ASSERT_EQ(trade.trade_count(), 1);
 
     const Order* incoming = manager.find(200);
     ASSERT_NE(incoming, nullptr);
@@ -363,4 +370,167 @@ TEST(MatchingEngineTest, PartiallyMatchedIncomingOrderRestsInBook)
 
     EXPECT_EQ(book.size(), 1);
     EXPECT_EQ(book.best_bid().value(), 200);
+}
+
+TEST(MatchingEngineTest, MatchesAcrossMultiplePriceLevels)
+{
+    OrderManager manager;
+    OrderBook book;
+
+    // Resting asks:
+    // 40 @ 100
+    // 30 @ 101
+    // 50 @ 102
+    ASSERT_TRUE(manager.process(
+        make_add_event(1, 100, Side::Sell, 10000, 40)
+    ));
+    ASSERT_TRUE(manager.process(
+        make_add_event(2, 101, Side::Sell, 10100, 30)
+    ));
+    ASSERT_TRUE(manager.process(
+        make_add_event(3, 102, Side::Sell, 10200, 50)
+    ));
+
+    ASSERT_TRUE(book.add(*manager.find(100)));
+    ASSERT_TRUE(book.add(*manager.find(101)));
+    ASSERT_TRUE(book.add(*manager.find(102)));
+
+    // Incoming BUY needs 70.
+    ASSERT_TRUE(manager.process(
+        make_add_event(4, 200, Side::Buy, 10200, 70)
+    ));
+
+    MatchingEngine engine(manager, book);
+
+    const auto trade = engine.match(200);
+
+    ASSERT_TRUE(trade.has_trades());
+    ASSERT_EQ(trade.trade_count(), 2);
+
+    // First match should consume the best ask.
+    EXPECT_EQ(trade.trades[0].incoming_order_id, 200);
+    EXPECT_EQ(trade.trades[0].resting_order_id, 100);
+    EXPECT_EQ(trade.trades[0].price, 10000);
+    EXPECT_EQ(trade.trades[0].quantity, 40);
+
+    EXPECT_EQ(trade.trades[1].incoming_order_id, 200);
+    EXPECT_EQ(trade.trades[1].resting_order_id, 101);
+    EXPECT_EQ(trade.trades[1].price, 10100);
+    EXPECT_EQ(trade.trades[1].quantity, 30);
+
+    const Order* incoming = manager.find(200);
+    ASSERT_NE(incoming, nullptr);
+
+    EXPECT_EQ(incoming->state(), OrderState::Filled);
+    EXPECT_EQ(incoming->remaining_quantity(), 0);
+
+    EXPECT_EQ(manager.find(100)->state(), OrderState::Filled);
+    EXPECT_EQ(manager.find(101)->state(), OrderState::Filled);
+    EXPECT_EQ(manager.find(101)->remaining_quantity(), 0); // 30 fully consumed
+
+    EXPECT_FALSE(book.contains(100));
+    EXPECT_FALSE(book.contains(101));
+    EXPECT_TRUE(book.contains(102));
+
+    EXPECT_EQ(book.size(), 1);
+    EXPECT_EQ(book.best_ask().value(), 102);
+}
+
+TEST(MatchingEngineTest, RestsRemainingQuantityAfterMultipleMatches)
+{
+    OrderManager manager;
+    OrderBook book;
+
+    // Resting asks:
+    // 40 @ 100
+    // 30 @ 101
+    ASSERT_TRUE(manager.process(
+        make_add_event(1, 100, Side::Sell, 10000, 40)
+    ));
+    ASSERT_TRUE(manager.process(
+        make_add_event(2, 101, Side::Sell, 10100, 30)
+    ));
+
+    ASSERT_TRUE(book.add(*manager.find(100)));
+    ASSERT_TRUE(book.add(*manager.find(101)));
+
+    // Incoming BUY needs 100.
+    // Only 70 is available.
+    ASSERT_TRUE(manager.process(
+        make_add_event(3, 200, Side::Buy, 10200, 100)
+    ));
+
+    MatchingEngine engine(manager, book);
+
+    const auto trade = engine.match(200);
+
+    ASSERT_TRUE(trade.has_trades());
+    ASSERT_EQ(trade.trade_count(), 2);
+
+    EXPECT_EQ(trade.trades[0].resting_order_id, 100);
+    EXPECT_EQ(trade.trades[0].price, 10000);
+    EXPECT_EQ(trade.trades[0].quantity, 40);
+
+    EXPECT_EQ(trade.trades[1].resting_order_id, 101);
+    EXPECT_EQ(trade.trades[1].price, 10100);
+    EXPECT_EQ(trade.trades[1].quantity, 30);
+
+    const Order* incoming = manager.find(200);
+    ASSERT_NE(incoming, nullptr);
+
+    EXPECT_EQ(incoming->state(), OrderState::PartiallyFilled);
+    EXPECT_EQ(incoming->remaining_quantity(), 30);
+
+    EXPECT_FALSE(book.contains(100));
+    EXPECT_FALSE(book.contains(101));
+
+    EXPECT_TRUE(book.contains(200));
+    EXPECT_EQ(book.size(), 1);
+
+    EXPECT_EQ(book.best_bid().value(), 200);
+}
+
+TEST(MatchingEngineTest, ReportsTradesInExecutionOrder)
+{
+    OrderManager manager;
+    OrderBook book;
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(1, 100, Side::Sell, 10000, 20)
+    ));
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(2, 101, Side::Sell, 10100, 30)
+    ));
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(3, 102, Side::Sell, 10200, 40)
+    ));
+
+    ASSERT_TRUE(book.add(*manager.find(100)));
+    ASSERT_TRUE(book.add(*manager.find(101)));
+    ASSERT_TRUE(book.add(*manager.find(102)));
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(4, 200, Side::Buy, 10200, 70)
+    ));
+
+    MatchingEngine engine(manager, book);
+
+    const auto result = engine.match(200);
+
+    ASSERT_TRUE(result.has_trades());
+    ASSERT_EQ(result.trade_count(), 3);
+
+    EXPECT_EQ(result.trades[0].resting_order_id, 100);
+    EXPECT_EQ(result.trades[0].price, 10000);
+    EXPECT_EQ(result.trades[0].quantity, 20);
+
+    EXPECT_EQ(result.trades[1].resting_order_id, 101);
+    EXPECT_EQ(result.trades[1].price, 10100);
+    EXPECT_EQ(result.trades[1].quantity, 30);
+
+    EXPECT_EQ(result.trades[2].resting_order_id, 102);
+    EXPECT_EQ(result.trades[2].price, 10200);
+    EXPECT_EQ(result.trades[2].quantity, 20);
 }

@@ -46,7 +46,9 @@ bool MarketSimulator::next_event(MarketEvent& event){
             QuoteEvent quote_event;
             quote_event.bid_price = price_distribution_(rng_);
             quote_event.bid_quantity = quantity_distribution_(rng_);
-            quote_event.asking_price = price_distribution_(rng_);
+            // generate positive spread so that bid < asking
+            const Price spread = std::uniform_int_distribution<Price>(1,10'000)(rng_);
+            quote_event.asking_price = quote_event.bid_price + spread;
             quote_event.asking_quantity = quantity_distribution_(rng_);
             event.payload = std::move(quote_event);
             break;
