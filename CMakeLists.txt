@@ -56,6 +56,12 @@ add_library(
     cpp/market_simulator/core/orders/order_manager.cpp
     cpp/market_simulator/core/orders/order_book.cpp
     cpp/market_simulator/core/orders/matching_engine.cpp
+    
+    # Execution
+    cpp/market_simulator/core/execution/execution_recorder.cpp
+
+    # Engine
+    cpp/market_simulator/core/engine/trading_engine.cpp
 
     # Simulator
     cpp/market_simulator/core/simulator/market_simulator.cpp
@@ -193,3 +199,34 @@ target_link_libraries(
     PRIVATE
         market_simulator
 )
+
+# ------------------------------------------------------------
+# Execution Tests
+# ------------------------------------------------------------
+
+add_executable(
+    execution_recorder_tests
+    tests/execution/execution_recorder_test.cpp
+)
+
+target_link_libraries(
+    execution_recorder_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(execution_recorder_tests)
+
+# Engine Tests
+add_executable(
+    trading_engine_tests
+    tests/engine/trading_engine_test.cpp
+)
+target_link_libraries(
+    trading_engine_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+gtest_discover_tests(trading_engine_tests)

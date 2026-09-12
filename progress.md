@@ -540,3 +540,62 @@ moreover, we have a coherent system
           ▼
      [NEXT LAYER]
 ```
+
+### Execution and Trade History Subsystems
+
+right now `MatchingEngine` produces 
+```yaml
+struct Trade {
+    OrderId incoming_order_id;
+    OrderId resting_order_id;
+    Price price;
+    Quantity quantity;
+};
+```
+but the trade is currently just returned to caller and disappears. we eventually need something like
+```yaml
+MatchingEngine
+      │
+      ├── Trade
+      │
+      ▼
+ExecutionRecorder
+      │
+      ├── execution history
+      ├── trade IDs
+      ├── timestamps
+      └── query/access layer
+```
+now an `Execution` is the persisted occurance of that trade, it should eventually carry the state as 
+```yaml
+Execution
+├── execution_id
+├── incoming_order_id
+├── resting_order_id
+├── symbol
+├── price
+├── quantity
+└── timestamp
+```
+we will start with minimal execution and then find our way to complete suite. SO the latest Event processing pipeline sits well as 
+```yaml
+                    MarketEvent
+                        │
+                        ▼
+                ┌──────────────┐
+                │ TradingEngine │
+                └───────┬──────┘
+                        │
+             ┌──────────┼──────────┐
+             ▼          ▼          ▼
+       OrderManager  OrderBook  MatchingEngine
+             │          ▲          │
+             │          │          ▼
+             └──────────┴──────── Trade
+                                  │
+                                  ▼
+                         ExecutionRecorder
+                                  │
+                                  ▼
+                              Execution
+```
