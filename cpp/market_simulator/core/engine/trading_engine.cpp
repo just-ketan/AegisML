@@ -7,7 +7,7 @@ bool TradingEngine::process(const MarketEvent& event){
     if(!is_valid(event)){    return false;   }
     if(!sequence_validator_.accept(event.sequence_number)){ return false;   }
 
-    if(std::holds_alternative<AddOrderEvent>(event.payload)){
+    if(event_type(event) == EventType::Add){
         const auto& add_order = std::get<AddOrderEvent>(event.payload);
         if(!order_manager_.process(event)){ return false;   }
     
@@ -30,7 +30,7 @@ bool TradingEngine::process(const MarketEvent& event){
     }
     // return order_manager_.process(event);
 
-    if(std::holds_alternative<CancelOrderEvent>(event.payload)){
+    if(event_type(event) == EventType::Cancel){
         const auto& cancel_order = std::get<CancelOrderEvent>(event.payload);
 
         MarketState* state = market_state_manager_.find(event.symbol);

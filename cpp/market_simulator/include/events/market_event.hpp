@@ -5,6 +5,7 @@
 #include "events/market_event_payload.hpp"
 #include "common/market_types.hpp"
 #include "common/symbol.hpp"
+#include "events/event_type.hpp"
 
 using MarketEventPayload = std::variant<
     TradeEvent,
@@ -23,4 +24,5 @@ struct MarketEvent {
     MarketEventPayload payload;
 };
 
+EventType event_type(const MarketEvent& event);
 bool is_valid(const MarketEvent& event);

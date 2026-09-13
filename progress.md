@@ -740,3 +740,51 @@ TradingEngine
                             ▼
                        OrderBook.remove()
 ```
+
+### Event Dispatch Processor
+right now `TradingEngine::process()` does several jobs
+```yaml
+MarketEvent
+    │
+    ▼
+TradingEngine::process()
+    │
+    ├── structural validation
+    ├── sequence validation
+    ├── identify event type
+    ├── route AddOrder
+    ├── route CancelOrder
+    ├── route other events
+    ├── matching
+    └── execution recording
+```
+this makes dependency around process(), we want to move the routing capacbilities to dispatcher. so the target architecture becomes
+```yaml
+                    MarketEvent
+                         │
+                         ▼
+                ┌─────────────────┐
+                │  TradingEngine  │
+                │                 │
+                │ validation      │
+                │ sequencing      │
+                └────────┬────────┘
+                         │
+                         ▼
+                ┌─────────────────┐
+                │ EventDispatcher │
+                └────────┬────────┘
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+      AddOrder        CancelOrder    Other events
+          │              │              │
+          ▼              ▼              ▼
+     OrderManager    OrderManager   OrderManager
+          │
+          ▼
+    MatchingEngine
+          │
+          ▼
+ ExecutionRecorder
+ ```

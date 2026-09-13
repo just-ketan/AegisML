@@ -1,6 +1,23 @@
 #include "events/market_event.hpp"
 #include <type_traits>
 
+EventType event_type(const MarketEvent& event){
+    return std::visit([](const auto& payload) -> EventType {
+        using T = std::decay_t<decltype(payload)>;
+        if constexpr (std::is_same_v<T, TradeEvent>){
+            return EventType::Trade;
+        } else if constexpr (std::is_same_v<T, QuoteEvent>){
+            return EventType::Quote;
+        } else if constexpr (std::is_same_v<T, AddOrderEvent>){
+            return EventType::Add;
+        } else if constexpr (std::is_same_v<T, CancelOrderEvent>){
+            return EventType::Cancel;
+        } else{
+            return EventType::Execute;
+        }
+    }, event.payload);
+}
+
 bool is_valid(const MarketEvent& event) {
     if (event.event_id == 0)    return false;
     if (event.sequence_number == 0) return false;
