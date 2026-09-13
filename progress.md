@@ -788,3 +788,62 @@ this makes dependency around process(), we want to move the routing capacbilitie
           ▼
  ExecutionRecorder
  ```
+
+ ### EventLog
+
+ so the interpretation of EventLog is as follows, it Logs every structurally valid incoming event, even if the engine later rejects it semantically.
+ ```yaml
+ MarketDataSource
+       │
+       ▼
+    Event
+       │
+       ├──────────► EventLog
+       │
+       ▼
+ TradingEngine
+
+seq 1 → valid Add      → accepted
+seq 2 → duplicate Add → rejected
+seq 3 → Trade          → accepted
+
+LOG CONTAINS: 1,2,3
+
+REPLAY PROCESS: 
+      1 → success
+      2 → failure
+      3 → success
+```
+
+This gives a `record of what actually entered the system`. therefore
+
+```yaml
+                    MarketEvent
+                         │
+                         ▼
+                    is_valid()
+                         │
+                  ┌──────┴──────┐
+                false          true
+                  │              │
+                reject           ▼
+                         sequence.accept()
+                                │
+                         ┌──────┴──────┐
+                       false          true
+                         │              │
+                       reject           ▼
+                                  EventLog.append()
+                                        │
+                                        ▼
+                                semantic processing
+                                        │
+                              ┌─────────┴─────────┐
+                           success             failure
+                              │                    │
+                              ▼                    ▼
+                           true                  false
+```
+naturally TradingEngine owns EventLog
+
+### Replay System and Deterministic replay

@@ -7,6 +7,9 @@ bool TradingEngine::process(const MarketEvent& event){
     if(!is_valid(event)){    return false;   }
     if(!sequence_validator_.accept(event.sequence_number)){ return false;   }
 
+    // log the vent
+    event_log_.append(event);
+
     if(event_type(event) == EventType::Add){
         const auto& add_order = std::get<AddOrderEvent>(event.payload);
         if(!order_manager_.process(event)){ return false;   }
@@ -83,4 +86,8 @@ const MarketStateManager& TradingEngine::market_state_manager() const {
 
 const ExecutionRecorder& TradingEngine::execution_recorder() const {
     return execution_recorder_;
+}
+
+const EventLog& TradingEngine::event_log() const {
+    return event_log_;
 }

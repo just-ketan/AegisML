@@ -55,6 +55,7 @@ add_library(
     # Events
     cpp/market_simulator/core/events/market_event.cpp
     cpp/market_simulator/core/events/event_sequence.cpp
+    cpp/market_simulator/core/events/event_log.cpp
 
     # Orders
     cpp/market_simulator/core/orders/order_manager.cpp
@@ -281,3 +282,18 @@ target_link_libraries(
 )
 
 gtest_discover_tests(simulation_clock_tests)
+
+# logging tests
+add_executable(
+    event_log_tests
+    tests/domain/event_log_test.cpp
+)
+
+target_link_libraries(
+    event_log_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(event_log_tests)

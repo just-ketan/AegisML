@@ -10,6 +10,7 @@
 #include "market/market_state_manager.hpp"
 #include "events/event_sequence.hpp"
 #include "interfaces/market_data_source.hpp"
+#include "events/event_log.hpp"
 
 class TradingEngine{
     public:
@@ -23,10 +24,13 @@ class TradingEngine{
         const MarketStateManager& market_state_manager() const;
         const ExecutionRecorder& execution_recorder() const;
 
+        const EventLog& event_log() const;
+
     private:
         OrderManager order_manager_;
         MarketStateManager market_state_manager_;
         ExecutionRecorder execution_recorder_;
         EventSequenceValidator sequence_validator_;
+        EventLog event_log_;
 };
 

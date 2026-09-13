@@ -1091,3 +1091,123 @@ TEST(TradingEngineTest, SemanticFailureConsumesSequence)
 
     EXPECT_TRUE(engine.process(third));
 }
+
+TEST(TradingEngineTest, LogsAcceptedEvent)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    MarketEvent event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    ASSERT_TRUE(engine.process(event));
+
+    ASSERT_EQ(engine.event_log().size(), 1);
+    EXPECT_EQ(engine.event_log().at(0).event_id, 1);
+    EXPECT_EQ(engine.event_log().at(0).sequence_number, 1);
+}
+
+TEST(TradingEngineTest, LogsSemanticFailure)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    MarketEvent first{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 100,
+            .side = Side::Buy,
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    MarketEvent duplicate{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 100,
+            .side = Side::Buy,
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    ASSERT_TRUE(engine.process(first));
+    EXPECT_FALSE(engine.process(duplicate));
+
+    ASSERT_EQ(engine.event_log().size(), 2);
+    EXPECT_EQ(engine.event_log().at(0).sequence_number, 1);
+    EXPECT_EQ(engine.event_log().at(1).sequence_number, 2);
+}
+
+TEST(TradingEngineTest, DoesNotLogStructurallyInvalidEvent)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    MarketEvent invalid{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 0,
+            .quantity = 100
+        }
+    };
+
+    EXPECT_FALSE(engine.process(invalid));
+    EXPECT_EQ(engine.event_log().size(), 0);
+}
+
+TEST(TradingEngineTest, DoesNotLogSequenceRejectedEvent)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    MarketEvent first{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    MarketEvent gap{
+        .event_id = 2,
+        .sequence_number = 3,
+        .timestamp = Timestamp{1001},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15100,
+            .quantity = 100
+        }
+    };
+
+    ASSERT_TRUE(engine.process(first));
+    EXPECT_FALSE(engine.process(gap));
+
+    ASSERT_EQ(engine.event_log().size(), 1);
+    EXPECT_EQ(engine.event_log().at(0).sequence_number, 1);
+}
