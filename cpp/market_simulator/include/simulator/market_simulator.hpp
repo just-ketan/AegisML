@@ -8,6 +8,7 @@
 
 #include "interfaces/market_data_source.hpp"
 #include "orders/order.hpp"
+#include "time/clock.hpp"
 
 
 struct SimulationConfig{
@@ -18,18 +19,19 @@ struct SimulationConfig{
 
 class MarketSimulator final : public IMarketDataSource{
     public:
-        explicit MarketSimulator(const SimulationConfig& config);
+        explicit MarketSimulator(const SimulationConfig& config, IClock& clock);
         bool next_event(MarketEvent& event) override;
         bool next_batch(std::vector<MarketEvent>& batch, std::size_t max_events) override;
     
     private:
         SimulationConfig config_;
+        IClock& clock_;
+
         std::mt19937_64 rng_;
         std::uint64_t events_generated_ = 0;
         std::uint64_t next_event_id_ = 1;
         std::uint64_t next_order_id_ = 1;
         std::uint64_t next_sequence_number_ = 1;
-        Timestamp current_timestamp_{0};
 
         std::uniform_int_distribution<std::size_t> symbol_distribution_;
         std::uniform_int_distribution<int> event_type_distribution_;

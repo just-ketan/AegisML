@@ -3,6 +3,7 @@
 
 #include "simulator/market_simulator.hpp"
 #include "common/symbol.hpp"
+#include "time/simulation_clock.hpp"
 
 int main() {
     SimulationConfig config{
@@ -17,7 +18,8 @@ int main() {
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+    MarketSimulator simulator(config, clock);
 
     MarketEvent event;
 

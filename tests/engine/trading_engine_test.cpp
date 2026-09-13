@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
+#include <vector>
 
 #include "engine/trading_engine.hpp"
+#include "simulator/market_simulator.hpp"
+#include "common/symbol.hpp"
 
 TEST(TradingEngineTest, StartsEmpty)
 {
@@ -817,4 +820,224 @@ TEST(TradingEngineTest, RejectingInvalidEventDoesNotConsumeSequence)
 
     EXPECT_FALSE(engine.process(invalid_event));
     EXPECT_TRUE(engine.process(valid_event));
+}
+
+class FailingMarketDataSource : public IMarketDataSource
+{
+public:
+    bool next_event(MarketEvent& event) override
+    {
+        if(index_ == 0){
+            event = MarketEvent{
+                .event_id = 1,
+                .sequence_number = 1,
+                .timestamp = Timestamp{1000},
+                .symbol = make_symbol("AAPL"),
+                .payload = TradeEvent{
+                    .price = 15000,
+                    .quantity = 100
+                }
+            };
+
+            ++index_;
+            return true;
+        }
+
+        if(index_ == 1){
+            event = MarketEvent{
+                .event_id = 2,
+                .sequence_number = 3,
+                .timestamp = Timestamp{1002},
+                .symbol = make_symbol("AAPL"),
+                .payload = TradeEvent{
+                    .price = 15000,
+                    .quantity = 100
+                }
+            };
+
+            ++index_;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool next_batch(
+        std::vector<MarketEvent>&,
+        std::size_t
+    ) override
+    {
+        return false;
+    }
+
+private:
+    std::size_t index_ = 0;
+};
+
+TEST(TradingEngineTest, StopsProcessingWhenAnEventFails)
+{
+    FailingMarketDataSource source;
+    TradingEngine engine;
+
+    EXPECT_EQ(engine.process(source), 1);
+}
+
+class SequentialMarketDataSource : public IMarketDataSource
+{
+public:
+    explicit SequentialMarketDataSource(
+        SequenceNumber event_count)
+        : event_count_(event_count)
+    {
+    }
+
+    bool next_event(MarketEvent& event) override
+    {
+        if(next_sequence_ > event_count_){
+            return false;
+        }
+
+        event = MarketEvent{
+            .event_id = next_sequence_,
+            .sequence_number = next_sequence_,
+            .timestamp = Timestamp{
+                static_cast<Timestamp::rep>(next_sequence_ * 1000)
+            },
+            .symbol = make_symbol("AAPL"),
+            .payload = TradeEvent{
+                .price = 15000,
+                .quantity = 100
+            }
+        };
+
+        ++next_sequence_;
+        return true;
+    }
+
+    bool next_batch(
+        std::vector<MarketEvent>& batch,
+        std::size_t max_events) override
+    {
+        batch.clear();
+
+        while(batch.size() < max_events){
+            MarketEvent event;
+
+            if(!next_event(event)){
+                break;
+            }
+
+            batch.push_back(event);
+        }
+
+        return !batch.empty();
+    }
+
+private:
+    SequenceNumber event_count_;
+    SequenceNumber next_sequence_ = 1;
+};
+
+TEST(TradingEngineTest, ProcessesRequestedBatchSize)
+{
+    SequentialMarketDataSource source{10};
+    TradingEngine engine;
+
+    EXPECT_EQ(engine.process_batch(source, 4), 4);
+}
+
+
+TEST(TradingEngineTest, ProcessesRemainingEventsAfterBatch)
+{
+    SequentialMarketDataSource source{5};
+    TradingEngine engine;
+
+    EXPECT_EQ(engine.process_batch(source, 3), 3);
+    EXPECT_EQ(engine.process_batch(source, 3), 2);
+}
+
+
+TEST(TradingEngineTest, ZeroBatchSizeProcessesNothing)
+{
+    SequentialMarketDataSource source{5};
+    TradingEngine engine;
+
+    EXPECT_EQ(engine.process_batch(source, 0), 0);
+}
+
+
+TEST(TradingEngineTest, EmptySourceProcessesNothing)
+{
+    SequentialMarketDataSource source{0};
+    TradingEngine engine;
+
+    EXPECT_EQ(engine.process_batch(source, 10), 0);
+}
+
+TEST(TradingEngineTest, ProcessesEntireMarketDataSource)
+{
+    SequentialMarketDataSource source{3};
+    TradingEngine engine;
+
+    EXPECT_EQ(engine.process(source), 3);
+}
+
+class BatchWithGapSource : public IMarketDataSource
+{
+public:
+    bool next_event(MarketEvent& event) override
+    {
+        if(index_ >= 3){
+            return false;
+        }
+
+        const SequenceNumber sequence =
+            index_ == 1 ? 3 : index_ + 1;
+
+        event = MarketEvent{
+            .event_id = index_ + 1,
+            .sequence_number = sequence,
+            .timestamp = Timestamp{
+                static_cast<Timestamp::rep>((index_ + 1) * 1000)
+            },
+            .symbol = make_symbol("AAPL"),
+            .payload = TradeEvent{
+                .price = 15000,
+                .quantity = 100
+            }
+        };
+
+        ++index_;
+        return true;
+    }
+
+    bool next_batch(
+        std::vector<MarketEvent>& batch,
+        std::size_t max_events) override
+    {
+        batch.clear();
+
+        while(batch.size() < max_events){
+            MarketEvent event;
+
+            if(!next_event(event)){
+                break;
+            }
+
+            batch.push_back(event);
+        }
+
+        return !batch.empty();
+    }
+
+private:
+    std::size_t index_ = 0;
+};
+
+TEST(TradingEngineTest, BatchProcessingStopsAtFirstRejectedEvent)
+{
+    BatchWithGapSource source;
+    TradingEngine engine;
+
+    EXPECT_EQ(engine.process_batch(source, 3), 1);
 }

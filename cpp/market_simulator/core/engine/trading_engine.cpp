@@ -1,4 +1,5 @@
 #include "engine/trading_engine.hpp"
+#include <vector>
 
 TradingEngine::TradingEngine() : order_manager_(), market_state_manager_(order_manager_), execution_recorder_() {}
 
@@ -45,6 +46,31 @@ bool TradingEngine::process(const MarketEvent& event){
         return true;
     }
     return order_manager_.process(event);
+}
+
+
+std::size_t TradingEngine::process(IMarketDataSource& source){
+    std::size_t processed = 0;
+    MarketEvent event;
+    while(source.next_event(event)){
+        if(!process(event)){    break;  }
+        ++processed;
+    }
+    return processed;
+}
+
+std::size_t TradingEngine::process_batch(IMarketDataSource& source,std::size_t max_events){
+    if(max_events == 0){    return 0;   }
+    std::vector<MarketEvent> batch;
+    if(!source.next_batch(batch, max_events)){  return 0;   }
+
+    std::size_t processed = 0;
+    for(const MarketEvent& event : batch){
+        if(!process(event)){    break;  }
+        ++processed;
+    }
+
+    return processed;
 }
 
 const OrderManager& TradingEngine::order_manager() const {

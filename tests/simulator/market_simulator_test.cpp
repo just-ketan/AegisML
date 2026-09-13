@@ -4,7 +4,7 @@
 
 #include "simulator/market_simulator.hpp"
 #include "common/symbol.hpp"
-
+#include "time/simulation_clock.hpp"
 
 TEST(MarketSimulatorTest, GeneratesExactNumberOfEvents)
 {
@@ -18,7 +18,8 @@ TEST(MarketSimulatorTest, GeneratesExactNumberOfEvents)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     MarketEvent event;
     std::size_t count = 0;
@@ -41,7 +42,8 @@ TEST(MarketSimulatorTest, StopsAfterConfiguredEventCount)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     MarketEvent event;
 
@@ -64,7 +66,8 @@ TEST(MarketSimulatorTest, EventIdsAreSequential)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     MarketEvent event;
     EventId expected_id = 1;
@@ -89,7 +92,8 @@ TEST(MarketSimulatorTest, SequenceNumbersAreSequential)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     MarketEvent event;
     SequenceNumber expected_sequence = 1;
@@ -103,10 +107,10 @@ TEST(MarketSimulatorTest, SequenceNumbersAreSequential)
 }
 
 
-TEST(MarketSimulatorTest, TimestampsIncrease)
+TEST(MarketSimulatorTest, TimestampsFollowClock)
 {
     SimulationConfig config{
-        .event_count = 100,
+        .event_count = 3,
         .seed = 42,
         .symbols = {
             make_symbol("AAPL"),
@@ -114,15 +118,25 @@ TEST(MarketSimulatorTest, TimestampsIncrease)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock{Timestamp{1000}};
+    MarketSimulator simulator(config, clock);
 
-    MarketEvent event;
-    Timestamp previous_timestamp{-1};
+    MarketEvent first;
+    MarketEvent second;
+    MarketEvent third;
 
-    while (simulator.next_event(event)) {
-        EXPECT_GT(event.timestamp, previous_timestamp);
-        previous_timestamp = event.timestamp;
-    }
+    ASSERT_TRUE(simulator.next_event(first));
+    EXPECT_EQ(first.timestamp, Timestamp{1000});
+
+    clock.advance(Timestamp{250});
+
+    ASSERT_TRUE(simulator.next_event(second));
+    EXPECT_EQ(second.timestamp, Timestamp{1250});
+
+    clock.advance(Timestamp{500});
+
+    ASSERT_TRUE(simulator.next_event(third));
+    EXPECT_EQ(third.timestamp, Timestamp{1750});
 }
 
 
@@ -140,7 +154,8 @@ TEST(MarketSimulatorTest, GeneratedEventsAreValid)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     MarketEvent event;
 
@@ -162,8 +177,11 @@ TEST(MarketSimulatorTest, DeterministicWithSameSeed)
         }
     };
 
-    MarketSimulator simulator_a(config);
-    MarketSimulator simulator_b(config);
+    SimulationClock clock_a;
+    SimulationClock clock_b;
+
+    MarketSimulator simulator_a(config, clock_a);
+    MarketSimulator simulator_b(config, clock_b);
 
     MarketEvent event_a;
     MarketEvent event_b;
@@ -202,8 +220,11 @@ TEST(MarketSimulatorTest, DifferentSeedsProduceDifferentStreams)
         }
     };
 
-    MarketSimulator simulator_a(config_a);
-    MarketSimulator simulator_b(config_b);
+    SimulationClock clock_a;
+    SimulationClock clock_b;
+
+    MarketSimulator simulator_a(config_a, clock_a);
+    MarketSimulator simulator_b(config_b, clock_b);
 
     MarketEvent event_a;
     MarketEvent event_b;
@@ -237,7 +258,8 @@ TEST(MarketSimulatorTest, GeneratesDifferentEventTypes)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     bool has_trade = false;
     bool has_quote = false;
@@ -290,7 +312,8 @@ TEST(MarketSimulatorTest, BatchReturnsRequestedNumberOfEvents)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     std::vector<MarketEvent> batch;
 
@@ -321,7 +344,8 @@ TEST(MarketSimulatorTest, BatchEventsHaveSequentialIds)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     std::vector<MarketEvent> batch;
 
@@ -348,7 +372,8 @@ TEST(MarketSimulatorTest, BatchDoesNotExceedRequestedSize)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     std::vector<MarketEvent> batch;
 
@@ -369,10 +394,52 @@ TEST(MarketSimulatorTest, EmptyBatchSizeIsRejected)
         }
     };
 
-    MarketSimulator simulator(config);
+    SimulationClock clock;
+MarketSimulator simulator(config, clock);
 
     std::vector<MarketEvent> batch;
 
     EXPECT_FALSE(simulator.next_batch(batch, 0));
     EXPECT_TRUE(batch.empty());
+}
+
+TEST(MarketSimulatorTest, UsesClockTimestamp)
+{
+    SimulationConfig config{
+        .event_count = 1,
+        .seed = 42,
+        .symbols = {make_symbol("AAPL")}
+    };
+
+    SimulationClock clock{Timestamp{5000}};
+    MarketSimulator simulator{config, clock};
+
+    MarketEvent event;
+
+    ASSERT_TRUE(simulator.next_event(event));
+    EXPECT_EQ(event.timestamp, Timestamp{5000});
+}
+
+TEST(MarketSimulatorTest, ClockControlsEventTimestamp)
+{
+    SimulationConfig config{
+        .event_count = 2,
+        .seed = 42,
+        .symbols = {make_symbol("AAPL")}
+    };
+
+    SimulationClock clock{Timestamp{1000}};
+    MarketSimulator simulator{config, clock};
+
+    MarketEvent first;
+    MarketEvent second;
+
+    ASSERT_TRUE(simulator.next_event(first));
+
+    clock.advance(Timestamp{250});
+
+    ASSERT_TRUE(simulator.next_event(second));
+
+    EXPECT_EQ(first.timestamp, Timestamp{1000});
+    EXPECT_EQ(second.timestamp, Timestamp{1250});
 }

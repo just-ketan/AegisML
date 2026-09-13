@@ -49,6 +49,9 @@ add_library(
     # Common
     cpp/market_simulator/core/common/symbol.cpp
 
+    # Time
+    cpp/market_simulator/core/time/simulation_clock.cpp
+
     # Events
     cpp/market_simulator/core/events/market_event.cpp
     cpp/market_simulator/core/events/event_sequence.cpp
@@ -263,3 +266,18 @@ target_link_libraries(
 )
 
 gtest_discover_tests(market_state_manager_tests)
+
+# timing tests
+add_executable(
+    simulation_clock_tests
+    tests/domain/simulation_clock_test.cpp
+)
+
+target_link_libraries(
+    simulation_clock_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(simulation_clock_tests)

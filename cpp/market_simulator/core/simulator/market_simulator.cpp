@@ -3,8 +3,9 @@
 #include <stdexcept>
 #include <utility>
 
-MarketSimulator::MarketSimulator(const SimulationConfig& config)
+MarketSimulator::MarketSimulator(const SimulationConfig& config, IClock& clock)
     :config_(config), 
+    clock_(clock),
     rng_(config.seed), 
     symbol_distribution_(0, config.symbols.empty() ? 0 : config.symbols.size()-1),
     event_type_distribution_(0,4),
@@ -24,8 +25,7 @@ bool MarketSimulator::next_event(MarketEvent& event){
     }
     event.event_id = next_event_id_++;
     event.sequence_number = next_sequence_number_++;
-    current_timestamp_ += std::chrono::milliseconds{1};
-    event.timestamp = current_timestamp_;
+    event.timestamp = clock_.now();
 
     // select random symbol
     const auto symbol_index = symbol_distribution_(rng_);
