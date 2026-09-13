@@ -6,6 +6,7 @@
 #include "orders/order_book.hpp"
 #include "orders/order_manager.hpp"
 #include "market/market_state_manager.hpp"
+#include "events/event_sequence.hpp"
 
 class TradingEngine{
     public:
@@ -20,6 +21,7 @@ class TradingEngine{
         OrderManager order_manager_;
         MarketStateManager market_state_manager_;
         ExecutionRecorder execution_recorder_;
+        EventSequenceValidator sequence_validator_;
 };
 /*
 the ownership is now exclusive

@@ -534,3 +534,86 @@ TEST(MatchingEngineTest, ReportsTradesInExecutionOrder)
     EXPECT_EQ(result.trades[2].price, 10200);
     EXPECT_EQ(result.trades[2].quantity, 20);
 }
+
+TEST(MatchingEngineTest, MatchPreservesQuantityConservation)
+{
+    OrderManager manager;
+    OrderBook book;
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(1, 100, Side::Sell, 10000, 100)
+    ));
+
+    ASSERT_TRUE(book.add(*manager.find(100)));
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(2, 200, Side::Buy, 10100, 60)
+    ));
+
+    MatchingEngine engine(manager, book);
+
+    const auto result = engine.match(200);
+
+    ASSERT_TRUE(result.has_trades());
+    ASSERT_EQ(result.trade_count(), 1);
+
+    const Trade& trade = result.trades[0];
+
+    const Order* incoming = manager.find(200);
+    const Order* resting = manager.find(100);
+
+    ASSERT_NE(incoming, nullptr);
+    ASSERT_NE(resting, nullptr);
+
+    EXPECT_EQ(trade.quantity, 60);
+
+    EXPECT_EQ(
+        incoming->filled_quantity() + incoming->remaining_quantity(),
+        incoming->quantity()
+    );
+
+    EXPECT_EQ(
+        resting->filled_quantity() + resting->remaining_quantity(),
+        resting->quantity()
+    );
+
+    EXPECT_EQ(incoming->filled_quantity(), trade.quantity);
+    EXPECT_EQ(resting->filled_quantity(), trade.quantity);
+}
+
+TEST(MatchingEngineTest, MatchOwnsIncomingOrderResting)
+{
+    OrderManager manager;
+    OrderBook book;
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(1, 100, Side::Sell, 10000, 40)
+    ));
+
+    ASSERT_TRUE(book.add(*manager.find(100)));
+
+    ASSERT_TRUE(manager.process(
+        make_add_event(2, 200, Side::Buy, 10100, 100)
+    ));
+
+    // Incoming order exists in OrderManager but has NOT
+    // been manually inserted into the OrderBook.
+    EXPECT_FALSE(book.contains(200));
+
+    MatchingEngine engine(manager, book);
+
+    const auto result = engine.match(200);
+
+    ASSERT_TRUE(result.has_trades());
+    ASSERT_EQ(result.trade_count(), 1);
+
+    const Order* incoming = manager.find(200);
+
+    ASSERT_NE(incoming, nullptr);
+    EXPECT_EQ(incoming->state(), OrderState::PartiallyFilled);
+    EXPECT_EQ(incoming->remaining_quantity(), 60);
+
+    EXPECT_TRUE(book.contains(200));
+    EXPECT_EQ(book.best_bid().value(), 200);
+}
+

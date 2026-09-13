@@ -723,4 +723,20 @@ OrderBook removes order
         ↓
 Order → Cancelled
 ```
-if removal fails, we must not blindly mark the order `Cancelled`
+if removal fails, we must not blindly mark the order `Cancelled`. The current implementation is checked against tests that it fails if OrderManager cancels an order, it moves the state to CancelPending, the OrderManager then processes it and all while `order remains in OrderBook`. So now, cancellation correctly crosses the two ownership domains,
+```yaml
+CancelOrderEvent
+       │
+       ▼
+TradingEngine
+       │
+       ├──────────────► OrderManager
+       │                    │
+       │                    ▼
+       │              CancelPending
+       │
+       └──────────────► Symbol MarketState
+                            │
+                            ▼
+                       OrderBook.remove()
+```

@@ -51,6 +51,7 @@ add_library(
 
     # Events
     cpp/market_simulator/core/events/market_event.cpp
+    cpp/market_simulator/core/events/event_sequence.cpp
 
     # Orders
     cpp/market_simulator/core/orders/order_manager.cpp

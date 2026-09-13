@@ -405,3 +405,53 @@ TEST(OrderBookTest, DoesNotContainRemovedOrder)
 
     EXPECT_FALSE(book.contains(1));
 }
+
+TEST(OrderBookTest, RemovesFilledOrderFromBook)
+{
+    OrderBook book;
+
+    Order order = make_order(
+        1,
+        Side::Buy,
+        10000,
+        100
+    );
+
+    ASSERT_TRUE(book.add(order));
+    ASSERT_TRUE(book.contains(1));
+
+    ASSERT_TRUE(order.apply_fill(100));
+    ASSERT_EQ(order.state(), OrderState::Filled);
+
+    // OrderBook does not observe Order state mutations.
+    // The owner must explicitly remove the filled order.
+    ASSERT_TRUE(book.remove(1));
+
+    EXPECT_FALSE(book.contains(1));
+    EXPECT_EQ(book.size(), 0);
+    EXPECT_FALSE(book.best_bid().has_value());
+}
+
+TEST(OrderBookTest, KeepsPartiallyFilledOrderInBook)
+{
+    OrderBook book;
+
+    Order order = make_order(
+        1,
+        Side::Buy,
+        10000,
+        100
+    );
+
+    ASSERT_TRUE(book.add(order));
+
+    ASSERT_TRUE(order.apply_fill(40));
+
+    ASSERT_EQ(order.state(), OrderState::PartiallyFilled);
+    EXPECT_EQ(order.remaining_quantity(), 60);
+
+    EXPECT_TRUE(book.contains(1));
+    EXPECT_EQ(book.size(), 1);
+    ASSERT_TRUE(book.best_bid().has_value());
+    EXPECT_EQ(book.best_bid().value(), 1);
+}

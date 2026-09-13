@@ -12,6 +12,7 @@ class MarketStateManager{
         explicit MarketStateManager(OrderManager& order_manager);
 
         MarketState& get_or_create(const Symbol& symbol);
+        MarketState* find(const Symbol& symbol);
         const MarketState* find(const Symbol& symbol) const;
         std::size_t size() const;
 

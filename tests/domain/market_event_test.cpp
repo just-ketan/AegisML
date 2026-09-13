@@ -2,7 +2,7 @@
 
 #include "events/market_event.hpp"
 #include "common/symbol.hpp"
-
+#include "events/event_sequence.hpp"
 
 TEST(MarketEventTest, ValidTradeEvent)
 {
@@ -148,6 +148,21 @@ TEST(MarketEventTest, RejectsNegativeTimestamp)
     EXPECT_FALSE(is_valid(event));
 }
 
+TEST(MarketEventTest, AcceptsZeroTimestamp)
+{
+    MarketEvent event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{0},
+        .symbol = make_symbol("AAPL"),
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    EXPECT_TRUE(is_valid(event));
+}
 
 TEST(MarketEventTest, RejectsEmptySymbol)
 {
@@ -358,4 +373,87 @@ TEST(MarketEventTest, RejectsExecuteWithZeroOrderId)
     };
 
     EXPECT_FALSE(is_valid(event));
+}
+
+// ------------------------------------------------------------
+// Event sequence validation
+// ------------------------------------------------------------
+
+TEST(EventSequenceValidatorTest, AcceptsInitialSequence)
+{
+    EventSequenceValidator validator;
+
+    EXPECT_TRUE(validator.accept(1));
+    EXPECT_EQ(validator.next_expected(), 2);
+}
+
+
+TEST(EventSequenceValidatorTest, AcceptsStrictlyIncreasingSequence)
+{
+    EventSequenceValidator validator;
+
+    EXPECT_TRUE(validator.accept(1));
+    EXPECT_TRUE(validator.accept(2));
+    EXPECT_TRUE(validator.accept(3));
+
+    EXPECT_EQ(validator.next_expected(), 4);
+}
+
+
+TEST(EventSequenceValidatorTest, RejectsDuplicateSequence)
+{
+    EventSequenceValidator validator;
+
+    EXPECT_TRUE(validator.accept(1));
+    EXPECT_FALSE(validator.accept(1));
+
+    EXPECT_EQ(validator.next_expected(), 2);
+}
+
+
+TEST(EventSequenceValidatorTest, RejectsSequenceGap)
+{
+    EventSequenceValidator validator;
+
+    EXPECT_TRUE(validator.accept(1));
+    EXPECT_FALSE(validator.accept(3));
+
+    EXPECT_EQ(validator.next_expected(), 2);
+}
+
+
+TEST(EventSequenceValidatorTest, RejectsOutOfOrderSequence)
+{
+    EventSequenceValidator validator;
+
+    EXPECT_TRUE(validator.accept(1));
+    EXPECT_TRUE(validator.accept(2));
+
+    EXPECT_FALSE(validator.accept(1));
+
+    EXPECT_EQ(validator.next_expected(), 3);
+}
+
+
+TEST(EventSequenceValidatorTest, RejectsZeroSequence)
+{
+    EventSequenceValidator validator;
+
+    EXPECT_FALSE(validator.accept(0));
+
+    EXPECT_EQ(validator.next_expected(), 1);
+}
+
+
+TEST(EventSequenceValidatorTest, ResetRestoresInitialState)
+{
+    EventSequenceValidator validator;
+
+    EXPECT_TRUE(validator.accept(1));
+    EXPECT_TRUE(validator.accept(2));
+
+    validator.reset();
+
+    EXPECT_EQ(validator.next_expected(), 1);
+    EXPECT_TRUE(validator.accept(1));
 }

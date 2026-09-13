@@ -14,6 +14,11 @@ MarketState& MarketStateManager::get_or_create(const Symbol& symbol){
     }
     return *it->second;
 }
+MarketState* MarketStateManager::find(const Symbol& symbol){
+    const auto it = states_.find(symbol);
+    if (it == states_.end()) {  return nullptr; }
+    return it->second.get();
+}
 
 const MarketState* MarketStateManager::find(const Symbol& symbol) const {
     const auto it = states_.find(symbol);

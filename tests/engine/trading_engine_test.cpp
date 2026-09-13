@@ -490,3 +490,331 @@ TEST(TradingEngineTest, CreatesMarketStateLazilyPerSymbol)
         nullptr
     );
 }
+
+TEST(TradingEngineTest, CancelsRestingOrder)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    const MarketEvent add_event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 1,
+            .side = Side::Sell,
+            .price = 10000,
+            .quantity = 10
+        }
+    };
+
+    ASSERT_TRUE(engine.process(add_event));
+
+    const MarketState* state =
+        engine.market_state_manager().find(symbol);
+
+    ASSERT_NE(state, nullptr);
+    ASSERT_TRUE(state->order_book().best_ask().has_value());
+
+    const MarketEvent cancel_event{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = symbol,
+        .payload = CancelOrderEvent{
+            .order_id = 1,
+            .quantity = 10
+        }
+    };
+
+    EXPECT_TRUE(engine.process(cancel_event));
+
+    const Order* order =
+        engine.order_manager().find(1);
+
+    ASSERT_NE(order, nullptr);
+    EXPECT_EQ(order->state(), OrderState::CancelPending);
+
+    EXPECT_FALSE(state->order_book().best_ask().has_value());
+}
+
+
+TEST(TradingEngineTest, CancelledOrderDoesNotMatch)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    const MarketEvent add_sell{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 1,
+            .side = Side::Sell,
+            .price = 10000,
+            .quantity = 10
+        }
+    };
+
+    ASSERT_TRUE(engine.process(add_sell));
+
+    const MarketEvent cancel_sell{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = symbol,
+        .payload = CancelOrderEvent{
+            .order_id = 1,
+            .quantity = 10
+        }
+    };
+
+    ASSERT_TRUE(engine.process(cancel_sell));
+
+    const MarketEvent add_buy{
+        .event_id = 3,
+        .sequence_number = 3,
+        .timestamp = Timestamp{1002},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 2,
+            .side = Side::Buy,
+            .price = 10100,
+            .quantity = 10
+        }
+    };
+
+    ASSERT_TRUE(engine.process(add_buy));
+
+    EXPECT_EQ(engine.execution_recorder().size(), 0);
+}
+
+
+TEST(TradingEngineTest, CancelUnknownOrderFails)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    const MarketEvent cancel_event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = CancelOrderEvent{
+            .order_id = 999,
+            .quantity = 10
+        }
+    };
+
+    EXPECT_FALSE(engine.process(cancel_event));
+}
+
+
+TEST(TradingEngineTest, CancelWrongSymbolDoesNotCorruptBook)
+{
+    TradingEngine engine;
+
+    const Symbol aapl = make_symbol("AAPL");
+    const Symbol googl = make_symbol("GOOGL");
+
+    const MarketEvent add_event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = aapl,
+        .payload = AddOrderEvent{
+            .order_id = 1,
+            .side = Side::Sell,
+            .price = 10000,
+            .quantity = 10
+        }
+    };
+
+    ASSERT_TRUE(engine.process(add_event));
+
+    const MarketEvent cancel_event{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = googl,
+        .payload = CancelOrderEvent{
+            .order_id = 1,
+            .quantity = 10
+        }
+    };
+
+    EXPECT_FALSE(engine.process(cancel_event));
+
+    const MarketState* state =
+        engine.market_state_manager().find(aapl);
+
+    ASSERT_NE(state, nullptr);
+
+    ASSERT_TRUE(state->order_book().best_ask().has_value());
+    EXPECT_EQ(*state->order_book().best_ask(), 1);
+
+    const Order* order =
+        engine.order_manager().find(1);
+
+    ASSERT_NE(order, nullptr);
+    EXPECT_EQ(order->state(), OrderState::New);
+}
+
+TEST(TradingEngineTest, CancellationRemovesOrderFromBookAndPreservesQuantity)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    const MarketEvent add_event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 100,
+            .side = Side::Sell,
+            .price = 10000,
+            .quantity = 100
+        }
+    };
+
+    ASSERT_TRUE(engine.process(add_event));
+
+    const MarketState* state =
+        engine.market_state_manager().find(symbol);
+
+    ASSERT_NE(state, nullptr);
+    ASSERT_TRUE(state->order_book().contains(100));
+
+    const MarketEvent cancel_event{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = symbol,
+        .payload = CancelOrderEvent{
+            .order_id = 100,
+            .quantity = 1
+        }
+    };
+
+    ASSERT_TRUE(engine.process(cancel_event));
+
+    const Order* order =
+        engine.order_manager().find(100);
+
+    ASSERT_NE(order, nullptr);
+
+    EXPECT_EQ(order->state(), OrderState::CancelPending);
+
+    // Cancellation does not alter filled/remaining quantities.
+    EXPECT_EQ(order->filled_quantity(), 0);
+    EXPECT_EQ(order->remaining_quantity(), 100);
+
+    // A cancel request removes the order from the active book.
+    EXPECT_FALSE(state->order_book().contains(100));
+    EXPECT_EQ(state->order_book().size(), 0);
+}
+
+TEST(TradingEngineTest, AcceptsSequentialEvents)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    const MarketEvent event1{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    const MarketEvent event2{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15100,
+            .quantity = 50
+        }
+    };
+
+    EXPECT_TRUE(engine.process(event1));
+    EXPECT_TRUE(engine.process(event2));
+}
+
+
+TEST(TradingEngineTest, RejectsOutOfOrderEvent)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    const MarketEvent event1{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    const MarketEvent event3{
+        .event_id = 3,
+        .sequence_number = 3,
+        .timestamp = Timestamp{1002},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15200,
+            .quantity = 50
+        }
+    };
+
+    ASSERT_TRUE(engine.process(event1));
+    EXPECT_FALSE(engine.process(event3));
+}
+
+
+TEST(TradingEngineTest, RejectingInvalidEventDoesNotConsumeSequence)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    const MarketEvent invalid_event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{-1},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    const MarketEvent valid_event{
+        .event_id = 2,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    EXPECT_FALSE(engine.process(invalid_event));
+    EXPECT_TRUE(engine.process(valid_event));
+}

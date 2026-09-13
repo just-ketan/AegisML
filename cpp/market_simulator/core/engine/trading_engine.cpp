@@ -4,16 +4,16 @@ TradingEngine::TradingEngine() : order_manager_(), market_state_manager_(order_m
 
 bool TradingEngine::process(const MarketEvent& event){
     if(!is_valid(event)){    return false;   }
+    if(!sequence_validator_.accept(event.sequence_number)){ return false;   }
+
     if(std::holds_alternative<AddOrderEvent>(event.payload)){
         const auto& add_order = std::get<AddOrderEvent>(event.payload);
-        
         if(!order_manager_.process(event)){ return false;   }
-        
+    
         MarketState& state = market_state_manager_.get_or_create(event.symbol);
         
         const Order* order = order_manager_.find(add_order.order_id);
         if(order==nullptr){ return false;   }
-        if(!state.order_book().add(*order)){    return false;   }
 
         const MatchResult result = state.matching_engine().match(add_order.order_id);
         const ExecutionContext context{
@@ -25,6 +25,23 @@ bool TradingEngine::process(const MarketEvent& event){
         for(const Trade& trade : result.trades){
             execution_recorder_.record(trade, context);
         }
+        return true;
+    }
+    // return order_manager_.process(event);
+
+    if(std::holds_alternative<CancelOrderEvent>(event.payload)){
+        const auto& cancel_order = std::get<CancelOrderEvent>(event.payload);
+
+        MarketState* state = market_state_manager_.find(event.symbol);
+        if(state == nullptr){   return false;   }
+
+        const Order* order = order_manager_.find(cancel_order.order_id);
+        if(order == nullptr){   return false;   }
+        
+        if(!order_manager_.process(event)){ return false;   }
+        if(!state->order_book().remove(cancel_order.order_id)){ return false;   }
+        //if(!order_manager_.confirm_cancel(cancel_order.order_id)){  return false;   }
+
         return true;
     }
     return order_manager_.process(event);
