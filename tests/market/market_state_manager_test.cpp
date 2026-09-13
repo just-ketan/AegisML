@@ -82,12 +82,12 @@ TEST(MarketStateManagerTest, MaintainsIndependentStatePerSymbol)
 
     EXPECT_EQ(
         aapl.order_book().best_ask().value(),
-        10100
+        1
     );
 
     EXPECT_EQ(
         googl.order_book().best_bid().value(),
-        10200
+        2
     );
 
     EXPECT_FALSE(

@@ -677,3 +677,50 @@ so now the StateManage rmaintains separation between books
        SELL 50             BUY 100
        @10100              @10200
 ```
+
+### Symbol-aware TradingEngine
+
+currently TradingEngine owns OrderManager, OrderBook, MatchingEngine and ExecutionRecorder. but OrderBook and MatchingEngine are singular, so we change it ot MarketStateManagement taking care of symbols.
+```yaml
+TradingEngine
+├── OrderManager
+├── MarketStateManager
+│     ├── AAPL  → MarketState
+│     ├── GOOGL → MarketState
+│     └── MSFT  → MarketState
+└── ExecutionRecorder
+```
+
+now that there are tests for the same, the behavioral work is done, the architecture evolves to
+```yaml
+                         TradingEngine
+                              │
+             ┌────────────────┼────────────────┐
+             ▼                ▼                ▼
+       OrderManager    MarketStateManager   ExecutionRecorder
+                              │
+                  ┌───────────┼───────────┐
+                  ▼           ▼           ▼
+                AAPL        GOOGL        MSFT
+                  │           │           │
+             MarketState  MarketState  MarketState
+              ┌───┴───┐    ┌───┴───┐
+              ▼       ▼    ▼       ▼
+         OrderBook MatchingEngine
+```
+all while OrderBook remains `concrete`, we currently dont have multiple orderbook implementations so we good. `MarketState` holds `OrderBook` and `MatchingEngine`, all while `OrderManager` is globally owned by `TradingEngine`. this allows global order lookup while keeping machine strictly symbol-scoped. `MarketStateManager` handles `synbol -> MarketState` mappings with lazy creation.
+
+### Major mismatch, what happend to cancelled orders?
+or target invariant is 
+```yaml
+OrderBook contains order
+        ↓
+Cancel requested
+        ↓
+Order → CancelPending
+        ↓
+OrderBook removes order
+        ↓
+Order → Cancelled
+```
+if removal fails, we must not blindly mark the order `Cancelled`

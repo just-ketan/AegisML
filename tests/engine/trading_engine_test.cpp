@@ -312,3 +312,181 @@ TEST(TradingEngineTest, ProcessesCompleteOrderLifecycle)
     ASSERT_NE(sell, nullptr);
     EXPECT_EQ(sell->state(), OrderState::CancelPending);
 }
+
+TEST(TradingEngineTest, IsolatesMatchingBySymbol)
+{
+    TradingEngine engine;
+
+    // AAPL resting sell.
+    MarketEvent aapl_sell{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = Symbol{"AAPL"},
+        .payload = AddOrderEvent{
+            .order_id = 1,
+            .side = Side::Sell,
+            .price = 10100,
+            .quantity = 100
+        }
+    };
+
+    // GOOGL resting sell at the same price.
+    MarketEvent googl_sell{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = Symbol{"GOOGL"},
+        .payload = AddOrderEvent{
+            .order_id = 2,
+            .side = Side::Sell,
+            .price = 10100,
+            .quantity = 100
+        }
+    };
+
+    ASSERT_TRUE(engine.process(aapl_sell));
+    ASSERT_TRUE(engine.process(googl_sell));
+
+    // AAPL buy crosses only AAPL sell.
+    MarketEvent aapl_buy{
+        .event_id = 3,
+        .sequence_number = 3,
+        .timestamp = Timestamp{1002},
+        .symbol = Symbol{"AAPL"},
+        .payload = AddOrderEvent{
+            .order_id = 3,
+            .side = Side::Buy,
+            .price = 10200,
+            .quantity = 40
+        }
+    };
+
+    ASSERT_TRUE(engine.process(aapl_buy));
+
+    // Exactly one execution: AAPL.
+    ASSERT_EQ(engine.execution_recorder().size(), 1);
+
+    const Execution& execution =
+        engine.execution_recorder().executions().front();
+
+    EXPECT_EQ(execution.symbol, Symbol{"AAPL"});
+    EXPECT_EQ(execution.incoming_order_id, 3);
+    EXPECT_EQ(execution.resting_order_id, 1);
+    EXPECT_EQ(execution.price, 10100);
+    EXPECT_EQ(execution.quantity, 40);
+
+    // GOOGL sell must remain completely untouched.
+    const Order* googl_order =
+        engine.order_manager().find(2);
+
+    ASSERT_NE(googl_order, nullptr);
+
+    EXPECT_EQ(googl_order->remaining_quantity(), 100);
+    EXPECT_EQ(googl_order->state(), OrderState::New);
+
+    // AAPL sell was partially filled.
+    const Order* aapl_order =
+        engine.order_manager().find(1);
+
+    ASSERT_NE(aapl_order, nullptr);
+
+    EXPECT_EQ(aapl_order->remaining_quantity(), 60);
+    EXPECT_EQ(
+        aapl_order->state(),
+        OrderState::PartiallyFilled
+    );
+}
+
+TEST(TradingEngineTest, CreatesMarketStateLazilyPerSymbol)
+{
+    TradingEngine engine;
+
+    EXPECT_EQ(
+        engine.market_state_manager().size(),
+        0
+    );
+
+    MarketEvent aapl_event{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = Symbol{"AAPL"},
+        .payload = AddOrderEvent{
+            .order_id = 100,
+            .side = Side::Buy,
+            .price = 10100,
+            .quantity = 50
+        }
+    };
+
+    ASSERT_TRUE(engine.process(aapl_event));
+
+    EXPECT_EQ(
+        engine.market_state_manager().size(),
+        1
+    );
+
+    ASSERT_NE(
+        engine.market_state_manager().find(
+            Symbol{"AAPL"}
+        ),
+        nullptr
+    );
+
+    // Another AAPL event must reuse the existing state.
+    MarketEvent aapl_event_2{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = Symbol{"AAPL"},
+        .payload = AddOrderEvent{
+            .order_id = 101,
+            .side = Side::Buy,
+            .price = 10000,
+            .quantity = 25
+        }
+    };
+
+    ASSERT_TRUE(engine.process(aapl_event_2));
+
+    EXPECT_EQ(
+        engine.market_state_manager().size(),
+        1
+    );
+
+    // First GOOGL event creates a second state.
+    MarketEvent googl_event{
+        .event_id = 3,
+        .sequence_number = 3,
+        .timestamp = Timestamp{1002},
+        .symbol = Symbol{"GOOGL"},
+        .payload = AddOrderEvent{
+            .order_id = 200,
+            .side = Side::Sell,
+            .price = 20000,
+            .quantity = 30
+        }
+    };
+
+    ASSERT_TRUE(engine.process(googl_event));
+
+    EXPECT_EQ(
+        engine.market_state_manager().size(),
+        2
+    );
+
+    ASSERT_NE(
+        engine.market_state_manager().find(
+            Symbol{"AAPL"}
+        ),
+        nullptr
+    );
+
+    ASSERT_NE(
+        engine.market_state_manager().find(
+            Symbol{"GOOGL"}
+        ),
+        nullptr
+    );
+}
