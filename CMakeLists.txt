@@ -59,6 +59,7 @@ add_library(
     cpp/market_simulator/core/events/replay_source.cpp
     cpp/market_simulator/core/events/event_serializer.cpp
     cpp/market_simulator/core/events/event_store.cpp
+    cpp/market_simulator/core/events/persistent_replay_source.cpp
 
     # Orders
     cpp/market_simulator/core/orders/order_manager.cpp
@@ -344,3 +345,18 @@ target_link_libraries(
 )
 
 gtest_discover_tests(event_store_tests)
+
+# persistent replay
+add_executable(
+    persistent_replay_source_tests
+    tests/domain/persistent_replay_source_test.cpp
+)
+
+target_link_libraries(
+    persistent_replay_source_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(persistent_replay_source_tests)

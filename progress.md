@@ -884,3 +884,27 @@ File
         └── payload
 ```
 we will be using `little-endian` encoding, so that we could process from LSB to MSB
+
+```yaml
+              ┌─────────────────┐
+              │   MarketEvent   │
+              └────────┬────────┘
+                       │
+              ┌────────▼────────┐
+              │ EventSerializer │
+              └────────┬────────┘
+                       │
+              ┌────────▼────────┐
+              │   EventStore    │
+              │     (disk)      │
+              └────────┬────────┘
+                       │
+              ┌────────▼────────┐
+              │ Persistent      │
+              │ ReplaySource    │
+              └────────┬────────┘
+                       │
+              ┌────────▼────────┐
+              │ TradingEngine   │
+              └─────────────────┘
+```
