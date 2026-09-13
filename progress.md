@@ -847,3 +847,40 @@ This gives a `record of what actually entered the system`. therefore
 naturally TradingEngine owns EventLog
 
 ### Replay System and Deterministic replay
+```yaml
+                 Original run
+MarketEvent ──► TradingEngine A
+                    │
+                    ├── Market State A
+                    ├── Executions A
+                    └── EventLog
+                           │
+                           ▼
+                     ReplaySource
+                           │
+                           ▼
+                    TradingEngine B
+                           │
+                           ├── Market State B
+                           └── Executions B
+
+             A == B
+```
+
+the seriallization should wire the format explicit and testable
+```yaml
+File
+├── Header
+│   ├── Magic       4 bytes
+│   └── Version     uint32
+│
+└── Events
+    └── Event
+        ├── event_id         uint64
+        ├── sequence_number  uint64
+        ├── timestamp        int64
+        ├── symbol           8 bytes
+        ├── event_type       uint8
+        └── payload
+```
+we will be using `little-endian` encoding, so that we could process from LSB to MSB

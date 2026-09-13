@@ -4,6 +4,7 @@
 #include "engine/trading_engine.hpp"
 #include "simulator/market_simulator.hpp"
 #include "common/symbol.hpp"
+#include "events/replay_source.hpp"
 
 TEST(TradingEngineTest, StartsEmpty)
 {
@@ -1211,3 +1212,218 @@ TEST(TradingEngineTest, DoesNotLogSequenceRejectedEvent)
     ASSERT_EQ(engine.event_log().size(), 1);
     EXPECT_EQ(engine.event_log().at(0).sequence_number, 1);
 }
+
+TEST(TradingEngineTest, DeterministicReplayReconstructsMarketState)
+{
+    const Symbol symbol = make_symbol("AAPL");
+
+    TradingEngine original;
+
+    const MarketEvent buy_100{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 1,
+            .side = Side::Buy,
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    const MarketEvent buy_50{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 2,
+            .side = Side::Buy,
+            .price = 14900,
+            .quantity = 50
+        }
+    };
+
+    const MarketEvent sell_120{
+        .event_id = 3,
+        .sequence_number = 3,
+        .timestamp = Timestamp{1002},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 3,
+            .side = Side::Sell,
+            .price = 15000,
+            .quantity = 120
+        }
+    };
+
+    ASSERT_TRUE(original.process(buy_100));
+    ASSERT_TRUE(original.process(buy_50));
+    ASSERT_TRUE(original.process(sell_120));
+
+    ASSERT_EQ(original.event_log().size(), 3);
+    ASSERT_EQ(original.execution_recorder().size(), 1);
+
+    const Order* original_order_1 =
+        original.order_manager().find(1);
+
+    const Order* original_order_2 =
+        original.order_manager().find(2);
+
+    const Order* original_order_3 =
+        original.order_manager().find(3);
+
+    ASSERT_NE(original_order_1, nullptr);
+    ASSERT_NE(original_order_2, nullptr);
+    ASSERT_NE(original_order_3, nullptr);
+
+    EXPECT_EQ(original_order_1->state(), OrderState::Filled);
+    EXPECT_EQ(original_order_1->filled_quantity(), 100);
+    EXPECT_EQ(original_order_1->remaining_quantity(), 0);
+
+    EXPECT_EQ(original_order_2->state(), OrderState::New);
+    EXPECT_EQ(original_order_2->filled_quantity(), 0);
+    EXPECT_EQ(original_order_2->remaining_quantity(), 50);
+
+    EXPECT_EQ(original_order_3->state(), OrderState::PartiallyFilled);
+    EXPECT_EQ(original_order_3->filled_quantity(), 100);
+    EXPECT_EQ(original_order_3->remaining_quantity(), 20);
+
+    const MarketState* original_state =
+        original.market_state_manager().find(symbol);
+
+    ASSERT_NE(original_state, nullptr);
+
+    EXPECT_EQ(original_state->order_book().size(), 2);
+    EXPECT_TRUE(original_state->order_book().contains(2));
+    EXPECT_TRUE(original_state->order_book().contains(3));
+
+    const auto original_best_bid =
+        original_state->order_book().best_bid();
+
+    const auto original_best_ask =
+        original_state->order_book().best_ask();
+
+    ASSERT_TRUE(original_best_bid.has_value());
+    ASSERT_TRUE(original_best_ask.has_value());
+
+    EXPECT_EQ(*original_best_bid, 2);
+    EXPECT_EQ(*original_best_ask, 3);
+
+    TradingEngine replayed;
+
+    ReplaySource source(original.event_log());
+
+    EXPECT_EQ(replayed.process(source), 3);
+
+    EXPECT_EQ(replayed.event_log().size(), 3);
+    EXPECT_EQ(replayed.execution_recorder().size(), 1);
+
+    const Order* replay_order_1 =
+        replayed.order_manager().find(1);
+
+    const Order* replay_order_2 =
+        replayed.order_manager().find(2);
+
+    const Order* replay_order_3 =
+        replayed.order_manager().find(3);
+
+    ASSERT_NE(replay_order_1, nullptr);
+    ASSERT_NE(replay_order_2, nullptr);
+    ASSERT_NE(replay_order_3, nullptr);
+
+    EXPECT_EQ(replay_order_1->state(), original_order_1->state());
+    EXPECT_EQ(replay_order_1->filled_quantity(),
+              original_order_1->filled_quantity());
+    EXPECT_EQ(replay_order_1->remaining_quantity(),
+              original_order_1->remaining_quantity());
+
+    EXPECT_EQ(replay_order_2->state(), original_order_2->state());
+    EXPECT_EQ(replay_order_2->filled_quantity(),
+              original_order_2->filled_quantity());
+    EXPECT_EQ(replay_order_2->remaining_quantity(),
+              original_order_2->remaining_quantity());
+
+    EXPECT_EQ(replay_order_3->state(), original_order_3->state());
+    EXPECT_EQ(replay_order_3->filled_quantity(),
+              original_order_3->filled_quantity());
+    EXPECT_EQ(replay_order_3->remaining_quantity(),
+              original_order_3->remaining_quantity());
+
+    const MarketState* replayed_state =
+        replayed.market_state_manager().find(symbol);
+
+    ASSERT_NE(replayed_state, nullptr);
+
+    EXPECT_EQ(
+        replayed_state->order_book().size(),
+        original_state->order_book().size()
+    );
+
+    EXPECT_TRUE(replayed_state->order_book().contains(2));
+    EXPECT_TRUE(replayed_state->order_book().contains(3));
+
+    const auto replay_best_bid =
+        replayed_state->order_book().best_bid();
+
+    const auto replay_best_ask =
+        replayed_state->order_book().best_ask();
+
+    ASSERT_TRUE(replay_best_bid.has_value());
+    ASSERT_TRUE(replay_best_ask.has_value());
+
+    EXPECT_EQ(*replay_best_bid, *original_best_bid);
+    EXPECT_EQ(*replay_best_ask, *original_best_ask);
+
+    const auto& original_executions =
+        original.execution_recorder().executions();
+
+    const auto& replayed_executions =
+        replayed.execution_recorder().executions();
+
+    ASSERT_EQ(replayed_executions.size(), original_executions.size());
+
+    for (std::size_t i = 0; i < original_executions.size(); ++i) {
+        EXPECT_EQ(
+            replayed_executions[i].execution_id,
+            original_executions[i].execution_id
+        );
+
+        EXPECT_EQ(
+            replayed_executions[i].event_id,
+            original_executions[i].event_id
+        );
+
+        EXPECT_EQ(
+            replayed_executions[i].timestamp,
+            original_executions[i].timestamp
+        );
+
+        EXPECT_EQ(
+            replayed_executions[i].symbol,
+            original_executions[i].symbol
+        );
+
+        EXPECT_EQ(
+            replayed_executions[i].incoming_order_id,
+            original_executions[i].incoming_order_id
+        );
+
+        EXPECT_EQ(
+            replayed_executions[i].resting_order_id,
+            original_executions[i].resting_order_id
+        );
+
+        EXPECT_EQ(
+            replayed_executions[i].price,
+            original_executions[i].price
+        );
+
+        EXPECT_EQ(
+            replayed_executions[i].quantity,
+            original_executions[i].quantity
+        );
+    }
+}
+

@@ -56,6 +56,9 @@ add_library(
     cpp/market_simulator/core/events/market_event.cpp
     cpp/market_simulator/core/events/event_sequence.cpp
     cpp/market_simulator/core/events/event_log.cpp
+    cpp/market_simulator/core/events/replay_source.cpp
+    cpp/market_simulator/core/events/event_serializer.cpp
+    cpp/market_simulator/core/events/event_store.cpp
 
     # Orders
     cpp/market_simulator/core/orders/order_manager.cpp
@@ -297,3 +300,47 @@ target_link_libraries(
 )
 
 gtest_discover_tests(event_log_tests)
+
+add_executable(
+    replay_source_tests
+    tests/domain/replay_source_test.cpp
+)
+
+target_link_libraries(
+    replay_source_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(replay_source_tests)
+
+add_executable(
+    event_serializer_tests
+    tests/domain/event_serializer_test.cpp
+)
+
+target_link_libraries(
+    event_serializer_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(event_serializer_tests)
+
+
+#= event store test
+add_executable(
+    event_store_tests
+    tests/domain/event_store_test.cpp
+)
+
+target_link_libraries(
+    event_store_tests
+    PRIVATE
+        market_simulator
+        GTest::gtest_main
+)
+
+gtest_discover_tests(event_store_tests)
