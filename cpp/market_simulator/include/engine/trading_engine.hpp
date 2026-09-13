@@ -29,13 +29,4 @@ class TradingEngine{
         ExecutionRecorder execution_recorder_;
         EventSequenceValidator sequence_validator_;
 };
-/*
-the ownership is now exclusive
-TradingEngine owns:
-├── OrderManager
-├── OrderBook
-├── MatchingEngine
-└── ExecutionRecorder
-and MatchinEngine needs reference to OrderManager and OrderBook
 
-*/

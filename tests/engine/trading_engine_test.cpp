@@ -1041,3 +1041,53 @@ TEST(TradingEngineTest, BatchProcessingStopsAtFirstRejectedEvent)
 
     EXPECT_EQ(engine.process_batch(source, 3), 1);
 }
+
+TEST(TradingEngineTest, SemanticFailureConsumesSequence)
+{
+    TradingEngine engine;
+
+    const Symbol symbol = make_symbol("AAPL");
+
+    MarketEvent first{
+        .event_id = 1,
+        .sequence_number = 1,
+        .timestamp = Timestamp{1000},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 100,
+            .side = Side::Buy,
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    MarketEvent duplicate{
+        .event_id = 2,
+        .sequence_number = 2,
+        .timestamp = Timestamp{1001},
+        .symbol = symbol,
+        .payload = AddOrderEvent{
+            .order_id = 100,
+            .side = Side::Buy,
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    MarketEvent third{
+        .event_id = 3,
+        .sequence_number = 3,
+        .timestamp = Timestamp{1002},
+        .symbol = symbol,
+        .payload = TradeEvent{
+            .price = 15000,
+            .quantity = 100
+        }
+    };
+
+    ASSERT_TRUE(engine.process(first));
+
+    EXPECT_FALSE(engine.process(duplicate));
+
+    EXPECT_TRUE(engine.process(third));
+}
