@@ -404,3 +404,45 @@ def test_singular_matrix_rank_deficient():
 
     assert matrix.determinant() == 0
     assert matrix.rank() == 1
+
+
+def test_matrix_equality():
+    a = Matrix([
+        [1, 2],
+        [3, 4],
+    ])
+
+    b = Matrix([
+        [1, 2],
+        [3, 4],
+    ])
+
+    assert a == b
+
+
+def test_matrix_equality_tolerates_floating_point_error():
+    a = Matrix([
+        [1.0, 2.0],
+        [3.0, 4.0],
+    ])
+
+    b = Matrix([
+        [1.0 + 1e-13, 2.0],
+        [3.0, 4.0 - 1e-13],
+    ])
+
+    assert a == b
+
+
+def test_matrix_equality_different_shapes():
+    a = Matrix([
+        [1, 2],
+        [3, 4],
+    ])
+
+    b = Matrix([
+        [1, 2, 3],
+        [4, 5, 6],
+    ])
+
+    assert a != b

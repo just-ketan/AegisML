@@ -197,33 +197,6 @@ class Matrix:
         return adjugate * (1.0/det)
 
     def rank(self) -> int:
-        """
-        Compute the rank of the matrix.
-
-        Rank is the number of linearly independent rows or,
-        equivalently, columns.
-
-        This implementation uses Gaussian elimination and counts
-        the number of pivot rows.
-
-        Example:
-
-            [1 2]
-            [2 4]
-
-        becomes:
-
-            [1 2]
-            [0 0]
-
-        Therefore:
-
-            rank = 1
-
-        Rank is important in machine learning because it tells us
-        how much independent information is contained in a matrix.
-        """
-
         matrix = [
             row.copy()
             for row in self._values
@@ -280,3 +253,34 @@ class Matrix:
             pivot_column += 1
 
         return rank
+
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Compare two matrices for equality.
+
+        Two matrices are considered equal when:
+            1. They have the same shape.
+            2. Corresponding elements are equal within a small
+            numerical tolerance.
+
+        A tolerance is necessary because matrix operations such as
+        inversion, diagonalization, and covariance computation may
+        introduce tiny floating-point errors.
+        """
+        if not isinstance(other, Matrix):
+            return NotImplemented
+
+        if self.shape != other.shape:
+            return False
+
+        tolerance = 1e-12
+
+        rows, cols = self.shape
+
+        for i in range(rows):
+            for j in range(cols):
+                if abs(self._values[i][j] - other._values[i][j]) > tolerance:
+                    return False
+
+        return True

@@ -71,3 +71,14 @@ class Vector:
     def _check_same_dimension(self, other:Vector) -> None:
         if(len(self) != len(other)):
             raise ValueError(f"Dimension mismatch: {len(self)} != {len(other)}")
+        
+    # helper to compare two column spaces
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Vector):
+            return NotImplemented
+        if len(self) != len(other):
+            return False
+
+        tolerance = 1e-12
+        return all(abs(a-b) <= tolerance for a,b in zip(self._values, other._values))
+        
