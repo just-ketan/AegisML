@@ -6,6 +6,7 @@ import pandas as pd
 MODEL_FEATURE_COLUMNS = [
     "price",
     "quantity",
+    "return_1",
     "rolling_mean_return",
     "rolling_volatility",
     "rolling_mean_volume",
