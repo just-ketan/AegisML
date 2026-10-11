@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+aegisml/__init__.py
+aegisml.egg-info/PKG-INFO
+aegisml.egg-info/SOURCES.txt
+aegisml.egg-info/dependency_links.txt
+aegisml.egg-info/requires.txt
+aegisml.egg-info/top_level.txt
