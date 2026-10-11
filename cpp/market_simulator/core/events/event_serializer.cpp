@@ -40,7 +40,7 @@ namespace{
                 }
             }
 
-            void write_i64(std::uint32_t value){
+            void write_i64(std::uint64_t value){
                 write_u64(static_cast<std::uint64_t>(value));
             }
 

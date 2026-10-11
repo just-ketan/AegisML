@@ -223,3 +223,37 @@ TEST(EventSerializerTest, RoundTripsExecuteOrderEvent)
     EXPECT_EQ(actual.quantity, expected.quantity);
 }
 
+/**
+ * Ensures that serialization preserves 64-bit values that exceed
+ * the range of a 32-bit unsigned integer.
+ *
+ * Ordinary small values do not expose truncation caused by an
+ * incorrectly typed write_i64 parameter.
+ */
+TEST(EventSerializerTest, PreservesValuesAbove32Bits) {
+    constexpr std::int64_t LARGE_PRICE = 5'000'000'000LL;
+    constexpr std::int64_t LARGE_QUANTITY = 6'000'000'000LL;
+
+    const MarketEvent original{
+        .event_id = 42,
+        .sequence_number = 7,
+        .timestamp = Timestamp{123456},
+        .symbol = make_symbol("AAPL"),
+        .payload = TradeEvent{
+            .price = LARGE_PRICE,
+            .quantity = LARGE_QUANTITY
+        }
+    };
+
+    const auto bytes = EventSerializer::serialize(original);
+    const MarketEvent restored = EventSerializer::deserialize(bytes);
+
+    ASSERT_TRUE(
+        std::holds_alternative<TradeEvent>(restored.payload)
+    );
+
+    const auto& trade = std::get<TradeEvent>(restored.payload);
+
+    EXPECT_EQ(trade.price, LARGE_PRICE);
+    EXPECT_EQ(trade.quantity, LARGE_QUANTITY);
+}

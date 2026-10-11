@@ -1,21 +1,119 @@
-# CMake build
-build/
 
-# IDE
+# ============================================================
+# CMake / C++ build artifacts
+# ============================================================
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Makefile
+
+# Compiled binaries and libraries
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+
+# ============================================================
+# IDEs and editors
+# ============================================================
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Compiled binaries
-*.o
-*.a
-*.so
-
+# ============================================================
 # Python
+# ============================================================
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 .venv/
+venv/
+env/
+ENV/
 
-# OS
+# Python packaging and testing
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+wheelhouse/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ============================================================
+# Go
+# ============================================================
+# Compiled Go binaries should be ignored by their actual names
+# or placed in build/ or bin/.
+*.test
+coverage.out
+coverage.html
+
+# ============================================================
+# Machine learning artifacts
+# ============================================================
+# Generated model files; keep intentional, versioned models explicit.
+*.joblib
+*.pkl
+*.pickle
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+# Generated datasets and experiment outputs
+# Keep source fixtures and small sample datasets versioned.
+artifacts/
+mlruns/
+wandb/
+
+# ============================================================
+# Logs and temporary files
+# ============================================================
+*.log
+logs/
+tmp/
+temp/
+
+# ============================================================
+# Environment variables and credentials
+# ============================================================
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Private keys and local credentials
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# ============================================================
+# OS-generated files
+# ============================================================
 .DS_Store
+.AppleDouble
+Thumbs.db
+Desktop.ini
 
+# ============================================================
+# Personal / sensitive files
+# ============================================================
 pass.md
